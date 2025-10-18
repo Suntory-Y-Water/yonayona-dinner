@@ -1,0 +1,9 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "yonayona-dinner",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-19",
+  "assets": {
+    "directory": "./dist"
+  }
+}

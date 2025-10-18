@@ -8,10 +8,11 @@
     "dev": "bun --watch run src/index.ts && tsc --watch"
   },
   "dependencies": {
-    "hono": "^4.7.11",
-    "shared": "workspace:*"
+    "hono": "^4.10.1",
+    "yonayona-dinner-shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "wrangler": "^4.43.0"
   }
 }

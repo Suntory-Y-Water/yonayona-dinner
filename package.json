@@ -13,15 +13,15 @@
   ],
   "scripts": {
     "dev": "turbo dev",
-    "dev:client": "turbo dev --filter=client",
-    "dev:server": "turbo dev --filter=server",
+    "dev:client": "turbo dev --filter=yonayona-dinner-client",
+    "dev:server": "turbo dev --filter=yonayona-dinner-server",
     "build": "turbo build",
-    "build:client": "turbo build --filter=client",
-    "build:server": "turbo build --filter=server",
+    "build:client": "turbo build --filter=yonayona-dinner-client",
+    "build:server": "turbo build --filter=yonayona-dinner-server",
     "lint": "biome lint .",
     "type-check": "turbo type-check",
     "test": "turbo test",
-    "postinstall": "turbo build --filter=shared --filter=server",
+    "postinstall": "turbo build --filter=yonayona-dinner-shared --filter=yonayona-dinner-server",
     "format": "biome format . --write"
   },
   "keywords": [
@@ -35,7 +35,8 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
     "bun-types": "latest",
-    "turbo": "^2.5.5"
+    "turbo": "^2.5.5",
+    "wrangler": "^4.43.0"
   },
   "peerDependencies": {
     "typescript": "^5.7.3"
