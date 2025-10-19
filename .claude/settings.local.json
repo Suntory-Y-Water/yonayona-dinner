@@ -4,7 +4,11 @@
     "allow": [
       "mcp__serena",
       "mcp__context7",
-      "mcp__deepwiki"
+      "mcp__deepwiki",
+      "SlashCommand(/kiro:spec-requirements yonayona-dinner)",
+      "Bash(hono docs cache)",
+      "Bash(hono search cache)",
+      "Bash(hono docs /docs/middleware/builtin/cache)"
     ],
     "deny": [
       "Bash(rm -rf ../*)",
@@ -30,10 +34,7 @@
     "ask": []
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "context7",
-    "serena"
-  ],
+  "enabledMcpjsonServers": ["context7", "serena"],
   "hooks": {
     "Stop": [
       {
