@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { hcWithType } from "server/dist/client";
+import { hcWithType } from "yonayona-dinner-server/dist/client";
 import beaver from "@/assets/beaver.svg";
 import { Button } from "@/components/ui/button";
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:8787";
 
 const client = hcWithType(SERVER_URL);
 
