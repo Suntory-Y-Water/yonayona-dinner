@@ -5,7 +5,9 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "bun --watch run src/index.ts && tsc --watch"
+    "dev": "bun run --hot src/index.ts",
+    "dev:wrangler": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "hono": "^4.10.1",

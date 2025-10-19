@@ -1,0 +1,93 @@
+{
+  "name": "TypeScript Dev Container",
+  "dockerFile": "Dockerfile",
+  "runArgs": ["--init"],
+  // コンテナ内のワークスペースフォルダを動的に設定
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [3000, 5173, 8787],
+  "otherPortsAttributes": {
+    "onAutoForward": "notify"
+  },
+
+  // VS Codeがコンテナに接続するたびに実行するコマンド
+  "postAttachCommand": "echo 'Welcome to your dev container!'",
+
+  // コンテナ作成後に実行するコマンド
+  "postCreateCommand": "bash .devcontainer/post_create.sh",
+
+  // VS Codeの設定
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "anysphere.pyright",
+        "bierner.markdown-mermaid",
+        "biomejs.biome",
+        "bradlc.vscode-tailwindcss",
+        "christian-kohler.path-intellisense",
+        "dbaeumer.vscode-eslint",
+        "donjayamanne.githistory",
+        "ecmel.vscode-html-css",
+        "esbenp.prettier-vscode",
+        "github.vscode-github-actions",
+        "hbenl.vscode-test-explorer",
+        "ionutvmi.path-autocomplete",
+        "marp-team.marp-vscode",
+        "mechatroner.rainbow-csv",
+        "meganrogge.template-string-converter",
+        "ms-azuretools.vscode-docker",
+        "ms-ceintl.vscode-language-pack-ja",
+        "ms-vscode.test-adapter-converter",
+        "njpwerner.autodocstring",
+        "oderwat.indent-rainbow",
+        "oouo-diogo-perdigao.docthis",
+        "openai.chatgpt",
+        "pkief.material-icon-theme",
+        "redhat.vscode-yaml",
+        "ritwickdey.liveserver",
+        "tamasfe.even-better-toml",
+        "unifiedjs.vscode-mdx",
+        "yzhang.markdown-all-in-one"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "[json]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[javascriptreact]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "editor.codeActionsOnSave": {
+          "source.fixAll.biome": "explicit",
+          "source.organizeImports.biome": "explicit"
+        }
+      }
+    }
+  },
+
+  // ユーザーを非rootユーザーにする
+  "remoteUser": "node",
+
+  // ボリュームマウントの設定
+  "mounts": [
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=tools-cache-${devcontainerId},target=/home/node/.local,type=volume",
+    "source=bun-cache-${devcontainerId},target=/home/node/.bun,type=volume",
+    "source=codex-cache-${devcontainerId},target=/home/node/.codex,type=volume"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  }
+}
