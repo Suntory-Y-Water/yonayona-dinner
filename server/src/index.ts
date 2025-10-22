@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { ApiResponse } from "shared/dist";
+
+type ApiResponse = {
+  message: string;
+  success: boolean;
+};
 
 export const app = new Hono()
 

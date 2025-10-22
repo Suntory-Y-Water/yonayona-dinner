@@ -8,7 +8,11 @@
       "SlashCommand(/kiro:spec-requirements yonayona-dinner)",
       "Bash(hono docs cache)",
       "Bash(hono search cache)",
-      "Bash(hono docs /docs/middleware/builtin/cache)"
+      "Bash(hono docs /docs/middleware/builtin/cache)",
+      "Bash(bun run build)",
+      "Bash(bun test)",
+      "mcp__ide__getDiagnostics",
+      "Bash(bun run test:*)"
     ],
     "deny": [
       "Bash(rm -rf ../*)",
@@ -34,7 +38,10 @@
     "ask": []
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["context7", "serena"],
+  "enabledMcpjsonServers": [
+    "context7",
+    "serena"
+  ],
   "hooks": {
     "Stop": [
       {
@@ -61,5 +68,16 @@
   "statusLine": {
     "type": "command",
     "command": "node ~/.claude/scripts/statusline.js"
+  },
+  "enabledPlugins": {
+    "hono-skills@kfly8-claude-plugins": true
+  },
+  "extraKnownMarketplaces": {
+    "kfly8-claude-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "kfly8/claude-plugins"
+      }
+    }
   }
 }
