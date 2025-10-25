@@ -71,12 +71,12 @@ export type Result<T, E> =
  * 位置情報取得エラーの種類
  */
 export type GeolocationError =
-  | { type: 'PERMISSION_DENIED'; message: string }
-  | { type: 'POSITION_UNAVAILABLE'; message: string }
-  | { type: 'TIMEOUT'; message: string }
-  | { type: 'NOT_SUPPORTED'; message: string };
+  | { type: "PERMISSION_DENIED"; message: string }
+  | { type: "POSITION_UNAVAILABLE"; message: string }
+  | { type: "TIMEOUT"; message: string }
+  | { type: "NOT_SUPPORTED"; message: string };
 
 /**
  * パーミッション状態
  */
-export type PermissionState = 'granted' | 'denied' | 'prompt';
+export type PermissionState = "granted" | "denied" | "prompt";

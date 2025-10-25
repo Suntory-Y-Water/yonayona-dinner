@@ -12,7 +12,10 @@
       "Bash(bun run build)",
       "Bash(bun test)",
       "mcp__ide__getDiagnostics",
-      "Bash(bun run test:*)"
+      "Bash(bun run test:*)",
+      "mcp__modular-mcp",
+      "Bash(hono search:*)",
+      "Bash(hono docs:*)"
     ],
     "deny": [
       "Bash(rm -rf ../*)",
@@ -38,10 +41,7 @@
     "ask": []
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "context7",
-    "serena"
-  ],
+  "enabledMcpjsonServers": ["modular-mcp"],
   "hooks": {
     "Stop": [
       {

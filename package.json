@@ -25,7 +25,8 @@
     "type-check": "turbo type-check",
     "test": "turbo test",
     "postinstall": "turbo build --filter=yonayona-dinner-shared --filter=yonayona-dinner-server",
-    "format": "biome format . --write"
+    "format": "biome format . --write",
+    "ai-check": "bun run format && bun run lint && bun run type-check"
   },
   "keywords": [
     "bun",

@@ -4,7 +4,6 @@ import {
   setOptions,
 } from "@googlemaps/js-api-loader";
 import type { LatLng, Result } from "shared";
-import { DARK_THEME_STYLES } from "@/lib/map-styles";
 
 /**
  * 地図エラーの種類
@@ -98,7 +97,6 @@ export async function initializeMap({
       center: { lat: center.lat, lng: center.lng },
       zoom: 15,
       mapId: "YONAYONA_DINNER_MAP",
-      styles: DARK_THEME_STYLES,
       disableDefaultUI: false,
       zoomControl: true,
       mapTypeControl: false,

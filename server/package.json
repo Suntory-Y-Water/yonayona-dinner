@@ -5,6 +5,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "test": "AGENT=1 bun test --bail=2",
     "dev": "bun run --hot src/index.ts",
     "dev:wrangler": "wrangler dev",
     "deploy": "wrangler deploy"
