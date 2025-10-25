@@ -15,7 +15,10 @@
       "Bash(bun run test:*)",
       "mcp__modular-mcp",
       "Bash(hono search:*)",
-      "Bash(hono docs:*)"
+      "Bash(hono docs:*)",
+      "Bash(gh api:*)",
+      "Bash(AGENT=1 bun test:*)",
+      "Bash(bun run:*)"
     ],
     "deny": [
       "Bash(rm -rf ../*)",

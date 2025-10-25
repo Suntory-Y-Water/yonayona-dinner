@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import type { Context } from "hono";
 import { Hono } from "hono";
+import { env } from "hono/adapter";
 import { cache } from "hono/cache";
 import { cors } from "hono/cors";
 import type {
@@ -8,8 +9,8 @@ import type {
   PlacesAPIError,
   SearchNearbyRequest,
 } from "yonayona-dinner-shared";
+import { SearchNearbyRequestSchema } from "yonayona-dinner-shared";
 import { SearchPlacesLoader } from "./loaders/search-places-loader";
-import { searchNearbySchema } from "./types/schema";
 
 type AppEnv = {
   Bindings: Env;
@@ -23,18 +24,22 @@ const app = new Hono<AppEnv>();
 app.use(cors());
 
 app.get("/", async (c) => {
-  return c.text("ようこそHonoへ！");
+  return c.text("Hello Hono!");
 });
 
 app.post(
   "/api/places/search",
-  zValidator("json", searchNearbySchema, (result, c: Context<AppEnv>) => {
-    if (!result.success) {
-      const message = formatValidationError(result.error.issues);
-      return c.json({ message }, 400);
-    }
-    c.set("searchNearbyRequest", result.data);
-  }),
+  zValidator(
+    "json",
+    SearchNearbyRequestSchema,
+    (result, c: Context<AppEnv>) => {
+      if (!result.success) {
+        const message = formatValidationError(result.error.issues);
+        return c.json({ message }, 400);
+      }
+      c.set("searchNearbyRequest", result.data);
+    },
+  ),
   cache({
     cacheName: "yonayona-dinner-places",
     cacheControl: "max-age=300",
@@ -46,7 +51,8 @@ app.post(
     },
   }),
   async (c) => {
-    const loader = new SearchPlacesLoader(c.env);
+    const { GOOGLE_PLACES_API_KEY } = env<Env>(c);
+    const loader = new SearchPlacesLoader(GOOGLE_PLACES_API_KEY);
     const result = await loader.run(c.var.searchNearbyRequest);
     if (result.success) {
       return c.json(result.data);

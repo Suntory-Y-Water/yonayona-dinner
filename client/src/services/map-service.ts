@@ -1,5 +1,5 @@
 import {
-  APIOptions,
+  type APIOptions,
   importLibrary,
   setOptions,
 } from "@googlemaps/js-api-loader";

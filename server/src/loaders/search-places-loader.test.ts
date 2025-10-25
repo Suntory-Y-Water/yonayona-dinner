@@ -19,7 +19,7 @@ type FetchMock = (
 
 describe("SearchPlacesLoaderの挙動", () => {
   test("APIキー付き環境を渡すとGoogleリポジトリにキーが設定される", async () => {
-    const env: Env = { GOOGLE_PLACES_API_KEY: "loader-key" };
+    const env = "loader-key";
     const request: SearchNearbyRequest = {
       location: { lat: 35, lng: 139 },
       radius: 600,

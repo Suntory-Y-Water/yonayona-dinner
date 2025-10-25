@@ -21,9 +21,9 @@ import { SearchNearbyPlacesUsecase } from "../usecases/search-nearby-places.usec
 export class SearchPlacesLoader {
   private readonly usecase: SearchNearbyPlacesUsecase;
 
-  constructor(env: Env) {
+  constructor(key: string) {
     const repository = new GooglePlacesRepository({
-      apiKey: env.GOOGLE_PLACES_API_KEY,
+      apiKey: key,
     });
     this.usecase = new SearchNearbyPlacesUsecase({ repository });
   }
