@@ -19,7 +19,8 @@
     "enabled": true,
     "rules": {
       "recommended": true
-    }
+    },
+    "includes": ["!**/*.test.tsx", "!**/*.test.ts"]
   },
   "javascript": {
     "formatter": {

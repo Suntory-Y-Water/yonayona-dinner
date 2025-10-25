@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/d-kimuson/modular-mcp/refs/heads/main/config-schema.json",
+  "mcpServers": {
+    "context7": {
+      "description": "公式ドキュメントから仕様を検索するがある場合に使用します。",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "env": {}
+    },
+    "serena": {
+      "description": "TypeScriptのファイルをRead, Write, Editを効率よく行うときに使用します。`メモリ`という単語を使用したときにファイルのWrite, Editを使用します。",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        ".",
+        "--enable-web-dashboard=false"
+      ],
+      "cwd": "."
+    }
+  }
+}
