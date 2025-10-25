@@ -1,29 +1,109 @@
+import { zValidator } from "@hono/zod-validator";
+import type { Context } from "hono";
 import { Hono } from "hono";
+import { cache } from "hono/cache";
 import { cors } from "hono/cors";
+import type {
+  Env,
+  PlacesAPIError,
+  SearchNearbyRequest,
+} from "yonayona-dinner-shared";
+import { SearchPlacesLoader } from "./loaders/search-places-loader";
+import { searchNearbySchema } from "./types/schema";
 
-type ApiResponse = {
-  message: string;
-  success: boolean;
+type AppEnv = {
+  Bindings: Env;
+  Variables: {
+    searchNearbyRequest: SearchNearbyRequest;
+  };
 };
 
-export const app = new Hono()
+const app = new Hono<AppEnv>();
 
-  .use(cors())
+app.use(cors());
 
-  .get("/", (c) => {
-    return c.text("Hello Hono!");
-  })
+app.get("/", async (c) => {
+  return c.text("ようこそHonoへ！");
+});
 
-  .get("/hello", async (c) => {
-    const data: ApiResponse = {
-      message: "Hello BHVR!",
-      success: true,
-    };
+app.post(
+  "/api/places/search",
+  zValidator("json", searchNearbySchema, (result, c: Context<AppEnv>) => {
+    if (!result.success) {
+      const message = formatValidationError(result.error.issues);
+      return c.json({ message }, 400);
+    }
+    c.set("searchNearbyRequest", result.data);
+  }),
+  cache({
+    cacheName: "yonayona-dinner-places",
+    cacheControl: "max-age=300",
+    keyGenerator: (c: Context<AppEnv>) => {
+      const request = c.var.searchNearbyRequest;
+      const lat = request.location.lat.toFixed(3);
+      const lng = request.location.lng.toFixed(3);
+      return `places:${lat}:${lng}:${request.radius}`;
+    },
+  }),
+  async (c) => {
+    const loader = new SearchPlacesLoader(c.env);
+    const result = await loader.run(c.var.searchNearbyRequest);
+    if (result.success) {
+      return c.json(result.data);
+    }
+    return c.json(
+      { message: result.error.message },
+      mapErrorToStatus(result.error),
+    );
+  },
+);
 
-    return c.json(data, { status: 200 });
-  });
+export { app };
 
 export default {
   port: 8787,
   fetch: app.fetch,
 };
+
+type ErrorStatusCode = 400 | 401 | 429 | 500 | 503;
+
+/**
+ * PlacesAPIErrorからHTTPステータスコードを導出する。
+ *
+ * @example
+ * ```ts
+ * const status = mapErrorToStatus({ type: "RATE_LIMIT", message: "多すぎるリクエスト" });
+ * console.log(status);
+ * ```
+ */
+function mapErrorToStatus(error: PlacesAPIError): ErrorStatusCode {
+  if (error.type === "INVALID_REQUEST") {
+    return 400;
+  }
+  if (error.type === "AUTH_ERROR") {
+    return 401;
+  }
+  if (error.type === "RATE_LIMIT") {
+    return 429;
+  }
+  if (error.type === "SERVICE_UNAVAILABLE") {
+    return 503;
+  }
+  return 500;
+}
+
+/**
+ * Zodエラーを整形してメッセージにする。
+ *
+ * @example
+ * ```ts
+ * const message = formatValidationError(zodError);
+ * console.log(message);
+ * ```
+ */
+function formatValidationError(
+  issues: ReadonlyArray<{ message: string }>,
+): string {
+  const fieldMessages = issues.map((issue) => issue.message);
+  return fieldMessages.join("; ") || "リクエストボディが不正です";
+}

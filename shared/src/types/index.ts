@@ -61,6 +61,34 @@ export type Place = {
 };
 
 /**
+ * Places APIでのエラー種別
+ */
+export type PlacesAPIError =
+  | { type: "RATE_LIMIT"; message: string }
+  | { type: "AUTH_ERROR"; message: string }
+  | { type: "NETWORK_ERROR"; message: string }
+  | { type: "INVALID_REQUEST"; message: string }
+  | { type: "SERVICE_UNAVAILABLE"; message: string };
+
+/**
+ * 周辺検索の入力
+ */
+export type SearchNearbyRequest = {
+  /** 検索中心位置 */
+  location: LatLng;
+  /** 検索半径（メートル） */
+  radius: number;
+};
+
+/**
+ * Places APIの検索レスポンス
+ */
+export type PlacesSearchResponse = {
+  /** 検索結果 */
+  places: Place[];
+};
+
+/**
  * 成功・失敗を表すResult型
  */
 export type Result<T, E> =
@@ -80,3 +108,11 @@ export type GeolocationError =
  * パーミッション状態
  */
 export type PermissionState = "granted" | "denied" | "prompt";
+
+/**
+ * Cloudflare Workersの環境変数バインディング
+ */
+export type Env = {
+  /** Places APIキー */
+  GOOGLE_PLACES_API_KEY: string;
+};
