@@ -1,7 +1,6 @@
 import type {
-  Env,
+  FilteredPlacesResponse,
   PlacesAPIError,
-  PlacesSearchResponse,
   Result,
   SearchNearbyRequest,
 } from "yonayona-dinner-shared";
@@ -14,7 +13,11 @@ import { SearchNearbyPlacesUsecase } from "../usecases/search-nearby-places.usec
  * @example
  * ```ts
  * const loader = new SearchPlacesLoader({ GOOGLE_PLACES_API_KEY: "key" });
- * const result = await loader.run({ location: { lat: 35, lng: 139 }, radius: 500 });
+ * const result = await loader.run({
+ *   location: { lat: 35, lng: 139 },
+ *   radius: 500,
+ *   targetTime: new Date("2025-10-27T23:00:00.000Z"),
+ * });
  * console.log(result.success);
  * ```
  */
@@ -30,7 +33,7 @@ export class SearchPlacesLoader {
 
   async run(
     request: SearchNearbyRequest,
-  ): Promise<Result<PlacesSearchResponse, PlacesAPIError>> {
+  ): Promise<Result<FilteredPlacesResponse, PlacesAPIError>> {
     return this.usecase.execute(request);
   }
 }

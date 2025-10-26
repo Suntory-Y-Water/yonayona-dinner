@@ -1,9 +1,11 @@
 import type {
+  FilteredPlacesResponse,
   PlacesAPIError,
-  PlacesSearchResponse,
   Result,
   SearchNearbyRequest,
 } from "yonayona-dinner-shared";
+import { filterOpenPlaces } from "../domain/opening-hours/filter-open-places";
+import { toFilteredPlace } from "../domain/opening-hours/to-filtered-place";
 import type { IPlacesRepository } from "../repositories/interfaces/places-repository.interface";
 
 /**
@@ -15,6 +17,7 @@ import type { IPlacesRepository } from "../repositories/interfaces/places-reposi
  * const result = await usecase.execute({
  *   location: { lat: 35.0, lng: 139.0 },
  *   radius: 500,
+ *   targetTime: new Date("2025-10-27T23:00:00.000Z"),
  * });
  * console.log(result.success);
  * ```
@@ -28,7 +31,7 @@ export class SearchNearbyPlacesUsecase {
 
   async execute(
     request: SearchNearbyRequest,
-  ): Promise<Result<PlacesSearchResponse, PlacesAPIError>> {
+  ): Promise<Result<FilteredPlacesResponse, PlacesAPIError>> {
     const validationError = validateSearchNearbyRequest(request);
     if (validationError) {
       return { success: false, error: validationError };
@@ -39,9 +42,17 @@ export class SearchNearbyPlacesUsecase {
       return searchResult;
     }
 
+    const openPlaces = filterOpenPlaces({
+      places: searchResult.data,
+      targetTime: request.targetTime,
+    });
+    const filteredPlaces = openPlaces.map((place) =>
+      toFilteredPlace({ place, targetTime: request.targetTime }),
+    );
+
     return {
       success: true,
-      data: { places: searchResult.data },
+      data: { places: filteredPlaces },
     };
   }
 }
@@ -54,6 +65,7 @@ export class SearchNearbyPlacesUsecase {
  * const error = validateSearchNearbyRequest({
  *   location: { lat: 100, lng: 0 },
  *   radius: 10,
+ *   targetTime: new Date("2025-10-27T23:00:00.000Z"),
  * });
  * console.log(error?.type);
  * ```
@@ -86,6 +98,10 @@ function validateSearchNearbyRequest(
       "Radius must be between 1 and 50000 meters.",
     );
   }
+
+  // targetTimeのバリデーションは不要
+  // TargetTime型はZodスキーマで既にフォーマット検証済み
+  // この時点でrequest.targetTimeは必ず"yyyy-MM-ddTHH:mm:ss"形式
 
   return undefined;
 }

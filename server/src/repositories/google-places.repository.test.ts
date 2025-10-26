@@ -1,3 +1,4 @@
+import { JstTimeStringSchema } from "yonayona-dinner-shared";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { LatLng, SearchNearbyRequest } from "yonayona-dinner-shared";
 import { GooglePlacesRepository } from "./google-places.repository";
@@ -12,6 +13,7 @@ const defaultLocation: LatLng = { lat: 35.0, lng: 139.0 };
 const defaultRequest: SearchNearbyRequest = {
   location: defaultLocation,
   radius: 500,
+  targetTime: JstTimeStringSchema.parse("2025-10-26T23:00:00"),
 };
 
 type FetchMock = (

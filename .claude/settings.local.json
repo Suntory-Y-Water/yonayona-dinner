@@ -18,7 +18,10 @@
       "Bash(hono docs:*)",
       "Bash(gh api:*)",
       "Bash(AGENT=1 bun test:*)",
-      "Bash(bun run:*)"
+      "Bash(bun run:*)",
+      "Bash(bun install:*)",
+      "Bash(node -e:*)",
+      "Bash(find:*)"
     ],
     "deny": [
       "Bash(rm -rf ../*)",

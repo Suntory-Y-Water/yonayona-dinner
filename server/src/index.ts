@@ -44,7 +44,10 @@ const app = new Hono<AppEnv>()
         const request = c.var.searchNearbyRequest;
         const lat = request.location.lat.toFixed(3);
         const lng = request.location.lng.toFixed(3);
-        return `places:${lat}:${lng}:${request.radius}`;
+        // JST時刻文字列をそのままキャッシュキーとして使用
+        // 5分単位にまるめる場合は、分の部分を5で割った商を使用
+        const timeKey = request.targetTime.slice(0, 16); // yyyy-MM-ddTHH:mm まで
+        return `places:${lat}:${lng}:${request.radius}:${timeKey}`;
       },
     }),
     async (c) => {
