@@ -9,6 +9,7 @@
 **コアコンセプト**:
 
 - **Place（店舗）**: 値オブジェクト、営業時間情報を含む飲食店の基本情報
+- **FilteredPlace（フィルタ済み店舗）**: 値オブジェクト、Place + 残り時間情報
 - **OpeningHours（営業時間）**: 値オブジェクト、営業時間帯のリストと営業中フラグ
 - **Location（位置情報）**: 値オブジェクト、緯度・経度の座標
 - **SearchCriteria（検索条件）**: 値オブジェクト、位置情報・半径・時間帯を含む検索パラメータ
@@ -144,6 +145,7 @@ type SearchNearbyRequest = {
     lng: number;
   };
   radius: number;
+  targetTime: string; // ISO 8601形式 "yyyy-MM-ddTHH:mm:ss"
 };
 ```
 
@@ -151,8 +153,12 @@ type SearchNearbyRequest = {
 
 ```typescript
 // サーバー → クライアント
-type PlacesSearchResponse = {
-  places: Place[];
+type FilteredPlacesResponse = {
+  places: FilteredPlace[];
+};
+
+type FilteredPlace = Place & {
+  remainingMinutes: number; // 閉店までの残り時間（分）
 };
 ```
 
@@ -173,6 +179,11 @@ function validateSearchRequest({
   }
   if (req.radius < 1 || req.radius > 50000) {
     return { success: false, error: 'INVALID_RADIUS' };
+  }
+  // targetTime形式検証
+  const targetDate = new Date(req.targetTime);
+  if (isNaN(targetDate.getTime())) {
+    return { success: false, error: 'INVALID_TARGET_TIME' };
   }
   return { success: true, data: req };
 }

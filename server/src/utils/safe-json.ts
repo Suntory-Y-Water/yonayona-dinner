@@ -17,7 +17,6 @@ export async function safeJson<T>({
   try {
     return (await response.clone().json()) as T;
   } catch (error) {
-    console.warn("Failed to parse JSON response", error);
     return undefined;
   }
 }

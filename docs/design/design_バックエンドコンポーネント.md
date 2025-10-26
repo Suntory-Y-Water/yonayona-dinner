@@ -42,14 +42,19 @@ type SearchNearbyRequest = {
     lng: number;  // -180~180
   };
   radius: number; // メートル単位、1~50000
+  targetTime: string; // ISO 8601形式 "yyyy-MM-ddTHH:mm:ss"
 };
 ```
 
 **レスポンススキーマ**:
 
 ```typescript
-type PlacesSearchResponse = {
-  places: Place[];
+type FilteredPlacesResponse = {
+  places: FilteredPlace[];
+};
+
+type FilteredPlace = Place & {
+  remainingMinutes: number; // 閉店までの残り時間（分）
 };
 
 type Place = {
@@ -75,9 +80,10 @@ type Place = {
 - リクエストボディが有効なJSON
 - 位置情報座標が有効範囲内
 - 半径が1~50000メートル
+- targetTimeが有効なISO 8601形式
 
 **事後条件**:
-- 成功時: 店舗データの配列を返す（最大20件）
+- 成功時: 営業中店舗のデータ配列を返す（最大20件、残り時間計算済み）
 - 失敗時: エラーステータスとエラーメッセージを返す
 
 #### Honoキャッシュミドルウェア
@@ -135,18 +141,18 @@ app.post(
 **キャッシュキー生成戦略**:
 
 ```typescript
-// 位置情報と半径に基づくキャッシュキー生成
+// 位置情報、半径、targetTimeに基づくキャッシュキー生成
 function generateCacheKey({
   location,
-  radius
-}: {
-  location: { lat: number; lng: number };
-  radius: number;
-}): string {
+  radius,
+  targetTime
+}: SearchNearbyRequest): string {
   // 座標を小数点3桁に丸める（約110mの精度）
   const lat = location.lat.toFixed(3);
   const lng = location.lng.toFixed(3);
-  return `places:${lat}:${lng}:${radius}`;
+  // 5分単位で丸める（300000ミリ秒 = 5分）
+  const timeKey = Math.floor(new Date(targetTime).getTime() / 300000);
+  return `places:${lat}:${lng}:${radius}:${timeKey}`;
 }
 ```
 
@@ -159,6 +165,83 @@ function generateCacheKey({
 - キャッシュミス時: Places APIを呼び出し、レスポンスをキャッシュに保存
 
 **不変条件**:
-- キャッシュキーは一意（位置情報と半径から生成）
+- キャッシュキーは一意（位置情報、半径、targetTimeから生成）
 - TTLは5分（300秒）固定（`max-age=300`）
 - ステータスコード200のみキャッシュ（デフォルト動作）
+
+#### OpeningHoursService (Domain Service)
+
+**責任と境界**
+- **主要責任**: 営業時間判定ロジック、24時跨ぎ対応、営業中店舗フィルタリング、残り時間計算
+- **ドメイン境界**: ドメイン層（営業時間ビジネスルール）
+- **データ所有権**: なし（純粋関数として実装）
+- **トランザクション境界**: なし
+
+**依存関係**
+- **Inbound**: SearchNearbyPlacesUsecase（フィルタリング処理）
+- **Outbound**: date-fns（日時計算）
+- **External**: date-fns ^4.1.0
+
+**契約定義**
+
+```typescript
+/**
+ * 指定時刻に営業中かを判定する
+ */
+function isOpenAt({
+  openingHours,
+  targetTime
+}: {
+  openingHours: OpeningHours | undefined;
+  targetTime: Date;
+}): boolean;
+
+/**
+ * 営業中店舗のみフィルタリングする
+ */
+function filterOpenPlaces({
+  places,
+  targetTime
+}: {
+  places: Place[];
+  targetTime: Date;
+}): Place[];
+
+/**
+ * 閉店までの残り時間を計算する（分単位）
+ */
+function calculateRemainingMinutes({
+  openingHours,
+  currentTime
+}: {
+  openingHours: OpeningHours;
+  currentTime: Date;
+}): number | null;
+
+/**
+ * FilteredPlace型を生成する
+ */
+function toFilteredPlace({
+  place,
+  targetTime
+}: {
+  place: Place;
+  targetTime: Date;
+}): FilteredPlace;
+```
+
+**事前条件**:
+- `targetTime`は有効なDateオブジェクト
+- `openingHours.periods`は空でない配列（営業時間が存在する場合）
+
+**事後条件**:
+- `isOpenAt()`: 営業中の場合`true`、閉店中または営業時間情報なしの場合`false`を返す
+- `filterOpenPlaces()`: 営業中店舗のみを含む配列を返す（元の配列は変更しない）
+- `calculateRemainingMinutes()`: 閉店までの分数を返す、営業時間外の場合`null`を返す
+- `toFilteredPlace()`: Place + remainingMinutesを持つFilteredPlaceを返す
+
+**不変条件**:
+- すべての関数は純粋関数（副作用なし）
+- 元のデータを変更しない（イミュータブル）
+- 24時跨ぎ営業時間に対応
+- 複数営業時間スロットに対応

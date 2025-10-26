@@ -89,17 +89,21 @@ type MarkerError =
 - **Outbound**: Honoサーバー（`/api/places/search`エンドポイント）
 - **External**: なし（標準fetch API使用）
 
+**注意**: 営業時間フィルタリングはサーバー側で実行されるため、クライアント側ではフィルタ済みの結果（FilteredPlace[]）を受け取る
+
 **契約定義**
 
 ```typescript
   // 近隣店舗検索
   searchNearby({
     location,
-    radius
+    radius,
+    targetTime
   }: {
     location: LatLng;
     radius: number;
-  }): Promise<Result<Place[], PlacesAPIError>>;
+    targetTime: string; // ISO 8601形式 "yyyy-MM-ddTHH:mm:ss"
+  }): Promise<Result<FilteredPlace[], PlacesAPIError>>;
 
   // 店舗詳細取得（将来拡張用）
   getPlaceDetails({
@@ -114,6 +118,10 @@ type PlacesAPIError =
   | { type: 'NETWORK_ERROR'; message: string }
   | { type: 'INVALID_REQUEST'; message: string }
   | { type: 'UNKNOWN_ERROR'; message: string };
+
+type FilteredPlace = Place & {
+  remainingMinutes: number; // 閉店までの残り時間（分）
+};
 
 type Place = {
   id: string;
@@ -140,82 +148,16 @@ type OpeningPeriod = {
 - サーバーが起動している
 - 有効な位置情報座標が渡される
 - 半径が正の数値
+- targetTimeが有効なISO 8601形式の文字列
 
 **事後条件**:
-- 成功時: 店舗データの配列を返す（最大20件）
+- 成功時: 営業中店舗のデータ配列を返す（最大20件、残り時間計算済み）
 - 失敗時: エラータイプに応じた適切なエラーオブジェクトを返す
 
 **不変条件**:
 - リクエストは常にサーバー経由で実行される（クライアントから直接Places APIを呼び出さない）
 - キャッシュは5分間有効
-
-#### OpeningHoursFilter
-
-**責任と境界**
-- **主要責任**: 営業時間判定ロジック、24時跨ぎ対応、営業中店舗フィルタリング
-- **ドメイン境界**: ビジネスロジック層（営業時間計算）
-- **データ所有権**: なし（純粋関数として実装）
-- **トランザクション境界**: なし
-
-**依存関係**
-- **Inbound**: PlaceSearchController（フィルタリング処理）
-- **Outbound**: date-fns（日時計算）
-- **External**: date-fns ^3.0.0
-
-**外部依存関係調査**:
-- **公式ドキュメント**: [date-fns Documentation](https://date-fns.org/)
-- **API署名**: 関数型アプローチで、Dateオブジェクトを引数に取る
-- **バージョン互換性**: v3.0.0以降で安定、v2からv3への移行ガイドあり
-- **パフォーマンス**: Tree-shakingに対応、必要な関数のみインポート可能
-- **既知の問題**: タイムゾーン処理にはdate-fns-tzが必要
-- **ベストプラクティス**: `import { format, addHours } from 'date-fns'`で個別インポート
-
-**契約定義**
-
-```typescript
-  // 指定時刻に営業中かを判定
-  isOpenAt({
-    openingHours,
-    targetTime
-  }: {
-    openingHours: OpeningHours | undefined;
-    targetTime: Date;
-  }): boolean;
-
-  // 営業中店舗のみフィルタリング
-  filterOpenPlaces({
-    places,
-    targetTime
-  }: {
-    places: Place[];
-    targetTime: Date;
-  }): Place[];
-
-  // 閉店までの残り時間を計算（分単位）
-  calculateRemainingMinutes({
-    openingHours,
-    currentTime
-  }: {
-    openingHours: OpeningHours;
-    currentTime: Date;
-  }): number | null;
-
-  // 営業時間情報の存在確認
-  hasOpeningHours({ place }: { place: Place }): boolean;
-```
-
-**事前条件**:
-- `targetTime`は有効なDateオブジェクト
-- `openingHours.periods`は空でない配列（営業時間が存在する場合）
-
-**事後条件**:
-- `isOpenAt()`: 営業中の場合`true`、閉店中または営業時間情報なしの場合`false`を返す
-- `filterOpenPlaces()`: 営業中店舗のみを含む配列を返す（元の配列は変更しない）
-- `calculateRemainingMinutes()`: 閉店までの分数を返す、営業時間外の場合`null`を返す
-
-**不変条件**:
-- すべての関数は純粋関数（副作用なし）
-- 元のデータを変更しない（イミュータブル）
+- サーバー側で営業時間フィルタリングが完了しているため、クライアント側での追加フィルタリングは不要
 
 #### GeolocationService
 

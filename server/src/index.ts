@@ -19,50 +19,49 @@ type AppEnv = {
   };
 };
 
-const app = new Hono<AppEnv>();
+const app = new Hono<AppEnv>()
+  .use(cors())
+  .get("/", async (c) => {
+    return c.text("Hello Hono!");
+  })
+  .post(
+    "/api/places/search",
+    zValidator(
+      "json",
+      SearchNearbyRequestSchema,
+      (result, c: Context<AppEnv>) => {
+        if (!result.success) {
+          const message = formatValidationError(result.error.issues);
+          return c.json({ message }, 400);
+        }
+        c.set("searchNearbyRequest", result.data);
+      },
+    ),
+    cache({
+      cacheName: "yonayona-dinner-places",
+      cacheControl: "max-age=300",
+      keyGenerator: (c: Context<AppEnv>) => {
+        const request = c.var.searchNearbyRequest;
+        const lat = request.location.lat.toFixed(3);
+        const lng = request.location.lng.toFixed(3);
+        return `places:${lat}:${lng}:${request.radius}`;
+      },
+    }),
+    async (c) => {
+      const { GOOGLE_PLACES_API_KEY } = env<Env>(c);
+      const loader = new SearchPlacesLoader(GOOGLE_PLACES_API_KEY);
+      const result = await loader.run(c.var.searchNearbyRequest);
 
-app.use(cors());
-
-app.get("/", async (c) => {
-  return c.text("Hello Hono!");
-});
-
-app.post(
-  "/api/places/search",
-  zValidator(
-    "json",
-    SearchNearbyRequestSchema,
-    (result, c: Context<AppEnv>) => {
       if (!result.success) {
-        const message = formatValidationError(result.error.issues);
-        return c.json({ message }, 400);
+        return c.json(
+          { message: result.error.message },
+          mapErrorToStatus(result.error),
+        );
       }
-      c.set("searchNearbyRequest", result.data);
-    },
-  ),
-  cache({
-    cacheName: "yonayona-dinner-places",
-    cacheControl: "max-age=300",
-    keyGenerator: (c: Context<AppEnv>) => {
-      const request = c.var.searchNearbyRequest;
-      const lat = request.location.lat.toFixed(3);
-      const lng = request.location.lng.toFixed(3);
-      return `places:${lat}:${lng}:${request.radius}`;
-    },
-  }),
-  async (c) => {
-    const { GOOGLE_PLACES_API_KEY } = env<Env>(c);
-    const loader = new SearchPlacesLoader(GOOGLE_PLACES_API_KEY);
-    const result = await loader.run(c.var.searchNearbyRequest);
-    if (result.success) {
+
       return c.json(result.data);
-    }
-    return c.json(
-      { message: result.error.message },
-      mapErrorToStatus(result.error),
-    );
-  },
-);
+    },
+  );
 
 export { app };
 
