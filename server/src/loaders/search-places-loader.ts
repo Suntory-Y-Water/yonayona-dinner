@@ -1,5 +1,5 @@
 import type {
-  FilteredPlacesResponse,
+  DisplayPlacesResponse,
   PlacesAPIError,
   Result,
   SearchNearbyRequest,
@@ -33,7 +33,7 @@ export class SearchPlacesLoader {
 
   async run(
     request: SearchNearbyRequest,
-  ): Promise<Result<FilteredPlacesResponse, PlacesAPIError>> {
+  ): Promise<Result<DisplayPlacesResponse, PlacesAPIError>> {
     return this.usecase.execute(request);
   }
 }

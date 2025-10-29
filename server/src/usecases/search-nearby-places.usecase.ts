@@ -1,11 +1,11 @@
 import type {
-  FilteredPlacesResponse,
+  DisplayPlacesResponse,
   PlacesAPIError,
   Result,
   SearchNearbyRequest,
 } from "yonayona-dinner-shared";
 import { filterOpenPlaces } from "../domain/opening-hours/filter-open-places";
-import { toFilteredPlace } from "../domain/opening-hours/to-filtered-place";
+import { toDisplayPlace } from "../domain/opening-hours/to-display-place";
 import type { IPlacesRepository } from "../repositories/interfaces/places-repository.interface";
 
 /**
@@ -31,7 +31,7 @@ export class SearchNearbyPlacesUsecase {
 
   async execute(
     request: SearchNearbyRequest,
-  ): Promise<Result<FilteredPlacesResponse, PlacesAPIError>> {
+  ): Promise<Result<DisplayPlacesResponse, PlacesAPIError>> {
     const validationError = validateSearchNearbyRequest(request);
     if (validationError) {
       return { success: false, error: validationError };
@@ -46,13 +46,13 @@ export class SearchNearbyPlacesUsecase {
       places: searchResult.data,
       targetTime: request.targetTime,
     });
-    const filteredPlaces = openPlaces.map((place) =>
-      toFilteredPlace({ place, targetTime: request.targetTime }),
+    const displayPlaces = openPlaces.map((place) =>
+      toDisplayPlace({ place, targetTime: request.targetTime }),
     );
 
     return {
       success: true,
-      data: { places: filteredPlaces },
+      data: { places: displayPlaces },
     };
   }
 }

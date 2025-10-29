@@ -1,0 +1,78 @@
+# 生成AIがコード作成後に参照するコーディングルール集
+rules:
+  - name: "インターフェースではなくtypeを使用する"
+    description: "本プロジェクトではinterfaceの代わりに型定義ではtypeを使用してください。"
+    example:
+      correct: "type User = { name: string; age: number; };"
+      incorrect: "interface User { name: string; age: number; }"
+
+  - name: "型安全にするため、構造的に型づけする"
+    description: "関数の引数は構造的に型定義し、アサーションが必要なデータがあるときはユーザーに許可を求める。"
+    example:
+      correct: "function add({a, b}: {a: number; b: number}) { return a + b }"
+      incorrect: "function add(a: number, b: number) { return a + b }"
+
+  - name: "関数の引数が2個以上あるときは引数をオブジェクト形式で設定する"
+    description: "可読性と保守性向上のため、複数引数はオブジェクト形式にする。"
+    example:
+      correct: "function createUser({name, age}: {name: string; age: number}) { ... }"
+      incorrect: "function createUser(name: string, age: number) { ... }"
+
+  - name: "最上位の関数はfunction宣言で実装する"
+    description: "見通しを良くするため、最上位の関数はfunction宣言で実装する。mapやfilter、即時関数などはアロー関数で実装する。"
+    example:
+      correct: "function processUsers(users: User[]) { return users.map(user => user.name); }"
+      incorrect: "const processUsers = (users: User[]) => { return users.map(user => user.name); };"
+
+  - name: "クラスは使用しない(DIコンテナ除く)"
+    description: "関数ベースの実装を行う。ただし@server/側のバックエンドで使用するDI部分についてはクラスを利用する。"
+
+  - name: "既存の型定義を積極的に再利用する"
+    description: "PickやOmitなどを使い、型は積極的に再利用する。"
+    example:
+      correct: "type UserName = Pick<User, 'name'>;"
+
+  - name: "配列の型定義は[]を使用する"
+    description: "Array<T>ではなく[]を使用する。"
+    example:
+      correct: "type Users = User[];"
+      incorrect: "type Users = Array<User>;"
+
+  - name: "暗黙のフォールバックは合理的な理由がない限り禁止"
+    description: "明示的なエラーハンドリングを行う。"
+
+  - name: "合理的な理由のない、スイッチ引数禁止"
+    description: "真偽値で挙動を切り替える引数は避ける。"
+
+  - name: "合理的な理由のない、オプショナル引数・デフォルト値は禁止"
+    description: "必要な引数は明示的に要求する。"
+
+  - name: "将来的な拡張性の考慮は禁止"
+    description: "YAGNI原則に従い、現在必要なものだけを実装する。"
+
+  - name: "契約による設計: TypeScriptで型保証されている引数の再チェックは避ける"
+    description: "既にTypeScriptで型保証されている引数の再チェックは不要。例外を投げないライブラリ関数への不要なtry-catchも避ける。例外処理は呼び出し元でキャッチするため、正常系のみを実装する。"
+
+  - name: "契約による設計: 装飾的なコメントは避ける"
+    description: "「(契約による設計)」など装飾的なコメントや事前・事後・不変条件の詳細なコメント記述は避ける。関数名と型定義で契約を明示し、必要最小限のJSDocコメントにする。"
+
+  - name: "純粋関数としての実装(副作用なし)"
+    description: "関数はシンプルで読みやすいコード構造にし、純粋関数として実装する。"
+
+  - name: "TDD を実施する"
+    description: "コードを生成するときは、それに対応するユニットテストを常に生成する。コードを追加で修正したとき、テストを`AGENT=1 bun test --bail=2` で実行し、パスすることを常に確認する。"
+    example:
+      correct: |
+        function add(a: number, b: number) { return a + b }
+        test("1+2=3", () => {
+          expect(add(1, 2)).toBe(3);
+        });
+
+  - name: "Given-When-Thenパターンに基づいてテストを実装する"
+    description: "メソッドの事前条件、事後条件、不変条件を検証するテストであること。"
+
+  - name: "関数やコンポーネントには TsDoc コメントを必ず追加する"
+    description: "TsDoc のコメントは初めて見た人でも使い方や入力・出力がわかる例を掲載し、説明を一切省略せず具体的に記載する。"
+
+  - name: "コード生成後は `bun run ai-check` でリント、型チェックを実行する"
+    description: "コード生成後の品質保証として、必ずリントと型チェックを実行する。"

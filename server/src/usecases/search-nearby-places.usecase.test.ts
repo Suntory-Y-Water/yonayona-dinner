@@ -36,7 +36,7 @@ function buildPlace(overrides?: Partial<Place>): Place {
 }
 
 describe("SearchNearbyPlacesUsecaseの挙動", () => {
-  test("正常系: 営業中店舗を残り時間付きで返す", async () => {
+  test("正常系: 営業中店舗をDisplayPlaceとして返す", async () => {
     const openingHours: OpeningHours = {
       openNow: true,
       periods: [
@@ -65,8 +65,11 @@ describe("SearchNearbyPlacesUsecaseの挙動", () => {
       throw new Error("成功レスポンスを想定していました");
     }
     expect(result.data.places).toHaveLength(1);
-    expect(result.data.places[0]?.id).toBe("1");
-    expect(result.data.places[0]?.remainingMinutes).toBe(180);
+    const firstPlace = result.data.places[0];
+    expect(firstPlace?.id).toBe("1");
+    expect(firstPlace?.businessStatus.remainingMinutes).toBe(180);
+    expect(firstPlace?.businessStatus.statusText).toBe("営業中（あと3時間）");
+    expect(firstPlace?.openingHoursDisplay.todayHours).toBe("18:00～23:00");
     expect(searchNearbyMock.mock.calls.length).toBe(1);
   });
 
