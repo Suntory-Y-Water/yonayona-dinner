@@ -45,10 +45,11 @@ graph TB
 **フロントエンド追加依存関係(すべて最新版をインストールする)**:
 - `@googlemaps/js-api-loader`: （Google Maps API読み込み）
 - `@types/google.maps`:（TypeScript型定義）
-- `date-fns`: （日時処理・営業時間判定）
-- `date-fns-tz`: （タイムゾーン対応）
 
 **バックエンド追加依存関係**:
+- `date-fns`: （日時処理・営業時間判定）
+
+**共通依存関係**:
 - 新規依存なし（標準fetchとCloudflare Workers APIを使用）
 
 **Hono Cache Middleware**:
@@ -58,7 +59,7 @@ graph TB
 **技術選定の理由**:
 - **Google Maps JavaScript API**: 要件で指定された地図表示・マーカー配置の標準的な選択肢
 - **Google Places API (New)**: 営業時間情報を含む店舗検索の最新API
-- **date-fns**: 軽量で関数型アプローチの日時ライブラリ、24時跨ぎ判定に最適
+- **date-fns (バックエンド)**: 軽量で関数型アプローチの日時ライブラリ、24時跨ぎ判定に最適、サーバー側で営業時間判定を実行
 - **Hono Cache Middleware**: Web Standards Cache APIを使用、Cloudflare Workers環境でのキャッシング最適化
 
 ### レイヤー別実装パターン
@@ -78,6 +79,11 @@ server/
 ├── repositories/     # データアクセス層（クラス）
 │   ├── interfaces/  # リポジトリインターフェース（type定義）
 │   └── *.ts         # Google Places API等への外部API接続
+├── domain/           # ドメイン層（関数ベース）
+│   └── places/      # 店舗関連ドメインロジック(ドメインが増えればフォルダを追加する)
+│       ├── place.ts         # Placeエンティティ、ドメインルール
+│       ├── places-mapper.ts # 外部API → ドメインモデル変換
+│       └── opening-hours-service.ts # 営業時間Domain Service
 └── utils/            # 純粋関数（関数ベース）
     └── *.ts         # 副作用なし、データ変換のみ
 ```
@@ -134,7 +140,7 @@ export function createSearchPlacesLoader(env: Env) {
 ```
 
 **判断基準**:
-- **クラスベース**: 外部通信を行う（Places API、将来のDB接続等）
+- **クラスベース**: usecaseやrepositoryなど外部通信を行う箇所のみ（Places API、将来のDB接続等）
 - **関数ベース**: 純粋関数のみ（utils、データ変換、計算処理等）
 
 #### クライアントサイド（`client/`）
@@ -178,17 +184,35 @@ export function displayMarkers({
 }
 
 // client/src/services/places-service.ts
+import { hc } from 'hono/client';
+import type { AppType } from '@server';
+
+const client = hc<AppType>('/');
+
 export async function searchNearby({
   location,
-  radius
+  radius,
+  targetTime
 }: {
   location: LatLng;
   radius: number;
-}): Promise<Result<Place[], PlacesAPIError>> {
-  // サーバーへのfetch呼び出し
+  targetTime: string;
+}): Promise<Result<FilteredPlace[], PlacesAPIError>> {
+  // Hono RPCによる型安全なAPI呼び出し
+  const res = await client.api.places.search.$post({
+    json: { location, radius, targetTime }
+  });
+
+  if (res.ok) {
+    const data = await res.json(); // 型推論: { places: FilteredPlace[] }
+    return { success: true, data: data.places };
+  }
+
+  return { success: false, error: await res.json() };
 }
 
-// client/src/lib/opening-hours-filter.ts
+// server/src/domain/places/opening-hours-service.ts
+// サーバーサイドのみで営業時間判定・フィルタリング・残り時間計算を実行
 export function isOpenAt({
   openingHours,
   targetTime
@@ -208,10 +232,21 @@ export function filterOpenPlaces({
 }): Place[] {
   // 純粋関数としてフィルタリング
 }
+
+export function calculateRemainingMinutes({
+  openingHours,
+  currentTime
+}: {
+  openingHours: OpeningHours;
+  currentTime: Date;
+}): number | null {
+  // 閉店までの残り時間計算
+}
 ```
 
 **理由**:
 - クライアントサイドは外部APIへの直接通信なし（すべてサーバー経由）
+- 営業時間判定・残り時間計算はサーバー側で完結
 - 状態管理はReact Hooksで十分
 - DIパターンの必要性が低い（モック化が必要な外部依存なし）
 - 関数型アプローチでシンプルに保つ
@@ -237,54 +272,82 @@ export type Result<T, E> =
 
 ### 主要な技術的意思決定
 
-#### 決定1: サーバーサイドプロキシパターンによるAPI統合
+#### 決定0: Hono RPCによる型安全なクライアント-サーバー通信
+
+**決定**: クライアント側のAPI呼び出しにHono RPC(`hc`)を使用し、サーバー側のAPIスキーマから型を自動推論
+
+**背景**: クライアント側でfetchベースのAPI呼び出しを実装すると、リクエスト/レスポンスの型安全性が失われ、ランタイムエラーのリスクが増加する
+
+**代替案**:
+1. **標準fetch + 手動型定義**: シンプルだが型安全性が低く、API変更時の追従が困難
+2. **OpenAPI Generator**: 型生成は自動だが、追加のビルドステップが必要で複雑化
+3. **Hono RPC（選択）**: サーバー側のAPIスキーマから自動型推論、ゼロビルドステップ
+
+**実装パターン**:
+
+```typescript
+// server/src/index.ts
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+
+const app = new Hono()
+  .post('/api/places/search',
+    zValidator('json', z.object({
+      location: z.object({ lat: z.number(), lng: z.number() }),
+      radius: z.number(),
+      targetTime: z.string()
+    })),
+    async (c) => {
+      const { location, radius, targetTime } = c.req.valid('json');
+      // ビジネスロジック
+      return c.json({ places: filteredPlaces }, 200);
+    }
+  );
+
+export type AppType = typeof app;
+
+// client/src/services/places-service.ts
+import { hc } from 'hono/client';
+import type { AppType } from '@server';
+
+const client = hc<AppType>('/');
+
+export async function searchNearby({ location, radius, targetTime }: SearchNearbyRequest) {
+  // Hono RPCによる型安全なAPI呼び出し
+  const res = await client.api.places.search.$post({
+    json: { location, radius, targetTime }
+  });
+
+  if (!res.ok) {
+    return { success: false, error: await res.json() };
+  }
+
+  const data = await res.json(); 
+  return { success: true, data: data.places };
+}
+```
+
+**根拠**:
+- **型安全性**: サーバー側のAPIスキーマをクライアント側で自動推論、型不整合を防止
+- **開発体験**: IDEによる自動補完とエラー検出、リファクタリングが容易
+- **ステータスコード別型推論**: 200/404等でレスポンス型が自動的に変化
+- **モノレポ親和性**: Bun workspaces + Turboとシームレスに統合
+
+**トレードオフ**:
+- **利点**: 型安全性の向上、リファクタリング容易性、ランタイムエラーの削減
+- **欠点**: Honoへの依存、TypeScript `strict: true` 必須、型推論の学習コスト
+
+#### 決定1: サーバーサイドプロキシパターンによるAPI統合（Places API）
 
 **決定**: Google Places APIへのすべてのリクエストをHonoサーバー経由で実行し、クライアントから直接APIを呼び出さない
 
-**背景**: Google Places APIはAPIキー認証を必要とし、クライアントサイドに直接埋め込むとキーが露出するセキュリティリスクがある
+**背景**: Google Places APIはAPIキー認証を必要とし、サーバー側でAPIキーを保護する必要がある
 
 **代替案**:
 1. **クライアント直接呼び出し + HTTPリファラー制限**: シンプルだがAPIキーが露出し、リファラー偽装のリスクがある
 2. **Firebase Extensionsの使用**: サーバーレス統合は容易だが、Cloudflare Workers環境との統合コストが高い
 3. **サーバーサイドプロキシ（選択）**: Cloudflare Workers Secretsでキーを保護し、キャッシング層も統合可能
-
-**選択したアプローチ**:
-
-```typescript
-// server/src/places-proxy.ts
-export async function searchNearby({
-  location,
-  radius,
-  env
-}: {
-  location: { lat: number; lng: number };
-  radius: number;
-  env: Env;
-}): Promise<PlacesSearchResponse> {
-  const apiKey = env.GOOGLE_PLACES_API_KEY; // Workers Secret
-
-  const response = await fetch(
-    'https://places.googleapis.com/v1/places:searchNearby',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'places.displayName,places.location,places.currentOpeningHours,places.formattedAddress'
-      },
-      body: JSON.stringify({
-        includedTypes: ['restaurant', 'cafe', 'bar'],
-        maxResultCount: 20,
-        locationRestriction: {
-          circle: { center: location, radius }
-        }
-      })
-    }
-  );
-
-  return response.json();
-}
-```
 
 **根拠**:
 - **セキュリティ**: APIキーがクライアントに露出しない
@@ -295,27 +358,33 @@ export async function searchNearby({
 - **利点**: セキュリティ強化、コスト最適化、キャッシング統合
 - **欠点**: サーバーへの追加リクエストによるレイテンシ増加（~50ms）、Workers実行コスト
 
-#### 決定2: クライアントサイド営業時間フィルタリング
+#### 決定2: サーバーサイド営業時間フィルタリング
 
-**決定**: Places APIから取得した店舗データをサーバーで返却後、クライアント側で営業時間フィルタリングを実行
+**決定**: Places APIから取得した店舗データをサーバー側のDomain Service（`opening-hours-service.ts`）で営業時間フィルタリングを実行し、営業中店舗のみクライアントに返却
 
-**背景**: Places API Nearby Searchには営業中フィルタがなく、すべての店舗を取得してからフィルタリングする必要がある
+**背景**: Places API Nearby Searchには営業中フィルタがなく、すべての店舗を取得してからフィルタリングする必要がある。ビジネスロジックはバックエンドに集約すべき
 
 **代替案**:
-1. **サーバーサイドフィルタリング**: サーバーで営業時間判定を実行し、フィルタ済みデータのみ返却
-2. **クライアントサイドフィルタリング（選択）**: クライアントで営業時間判定とフィルタリングを実行
+1. **サーバーサイドフィルタリング（選択）**: サーバーのDomain Serviceで営業時間判定を実行し、フィルタ済みデータのみ返却
+2. **クライアントサイドフィルタリング**: クライアントで営業時間判定とフィルタリングを実行
 3. **Places API Text Searchの活用**: クエリで営業中を指定するが、精度が低く信頼性に欠ける
 
 **選択したアプローチ**:
 
+サーバーサイドでの営業時間フィルタリング実装:
+- **Domain Service**: `server/src/domain/places/opening-hours-service.ts`に営業時間判定ロジックを配置
+- **Usecase連携**: `SearchNearbyPlacesUsecase`からDomain Serviceを呼び出し
+- **レスポンス**: 営業中店舗のみ + 閉店までの残り時間を計算済みで返却
+
 **根拠**:
-- **リアルタイム性**: ユーザーが時間調整UIを操作した際に即座にフィルタリング結果を反映
-- **サーバー負荷削減**: フィルタリング処理をクライアントに分散
-- **キャッシュ効率**: 時間帯に依存しない生データをキャッシュし、再利用性を向上
+- **ビジネスロジック集約**: 営業時間判定はドメインルール、Domain Serviceとしてバックエンドに配置
+- **フロントエンドJS削減**: date-fns依存とフィルタリングロジックをクライアントから削除
+- **データ転送量削減**: 営業中店舗のみ返却、不要なデータ送信を回避
+- **キャッシュ最適化**: targetTimeを含むキャッシュキーで時間帯別にキャッシング(5分単位)
 
 **トレードオフ**:
-- **利点**: 時間調整UIでの即座な反映、サーバー負荷削減、キャッシュ効率
-- **欠点**: クライアントサイドでの追加処理、営業時間データの肥大化時のパフォーマンス懸念
+- **利点**: ビジネスロジックのバックエンド集約、フロントエンドのJavaScript削減、データ転送量削減、テスタビリティ向上
+- **欠点**: 時間調整UI操作時に毎回API呼び出しが必要（キャッシュヒット時は高速）、サーバー側の処理負荷増加
 
 #### 決定3: Google Maps JavaScript APIの直接統合
 
@@ -354,222 +423,3 @@ IPlacesRepository（抽象）
   ↑ 実装
 GooglePlacesRepository（具象）
 ```
-
-**サーバーサイド実装例（クラスベース）**:
-
-```typescript
-// 1. インターフェース定義
-type IPlacesRepository = {
-  searchNearby({
-    location,
-    radius
-  }: {
-    location: LatLng;
-    radius: number;
-  }): Promise<Result<Place[], PlacesAPIError>>;
-};
-
-// 2. 具象クラス
-class GooglePlacesRepository implements IPlacesRepository {
-  constructor(private apiKey: string) {}
-
-  async searchNearby({
-    location,
-    radius
-  }: {
-    location: LatLng;
-    radius: number;
-  }): Promise<Result<Place[], PlacesAPIError>> {
-    // Google Places API呼び出し
-    const response = await fetch(/* ... */);
-    return { success: true, data: await response.json() };
-  }
-}
-
-// 3. Usecase（ビジネスロジック）
-class SearchNearbyPlacesUsecase {
-  constructor(
-    private placesRepository: IPlacesRepository
-  ) {}
-
-  async execute({
-    location,
-    radius,
-    targetTime
-  }: {
-    location: LatLng;
-    radius: number;
-    targetTime: Date;
-  }): Promise<Result<Place[], UsecaseError>> {
-    // Places API呼び出し（キャッシングはHonoミドルウェアが自動処理）
-    const result = await this.placesRepository.searchNearby({ location, radius });
-    if (!result.success) return result;
-
-    return result;
-  }
-}
-
-// 4. Loader（DIの一元管理）
-export function createSearchPlacesLoader(env: Env) {
-  return async ({
-    location,
-    radius,
-    targetTime
-  }: {
-    location: LatLng;
-    radius: number;
-    targetTime: Date;
-  }) => {
-    // 具象Repositoryのインスタンス化（Loaderのみが実施）
-    const placesRepo = new GooglePlacesRepository(env.GOOGLE_PLACES_API_KEY);
-
-    // Usecaseへの注入
-    const usecase = new SearchNearbyPlacesUsecase(placesRepo);
-
-    // 実行
-    return await usecase.execute({ location, radius, targetTime });
-  };
-}
-
-// 5. Honoルーター（キャッシュミドルウェア適用）
-import { cache } from 'hono/cache';
-
-app.post(
-  '/api/places/search',
-  cache({
-    cacheName: 'yonayona-dinner-places',
-    cacheControl: 'max-age=300', // 5分間キャッシュ
-    keyGenerator: async (c) => {
-      const body = await c.req.json();
-      const lat = body.location.lat.toFixed(3);
-      const lng = body.location.lng.toFixed(3);
-      return `places:${lat}:${lng}:${body.radius}`;
-    }
-  }),
-  async (c) => {
-    const loader = createSearchPlacesLoader(c.env);
-    const body = await c.req.json();
-    const result = await loader(body);
-
-    if (!result.success) {
-      return c.json({ error: result.error }, 500);
-    }
-    return c.json(result.data);
-  }
-);
-```
-
-**クライアントサイド実装例（関数ベース）**:
-
-```typescript
-// client/src/services/map-service.ts
-export async function initializeMap({
-  element,
-  center
-}: {
-  element: HTMLElement;
-  center: LatLng;
-}): Promise<Result<google.maps.Map, MapError>> {
-  try {
-    const { Map } = await google.maps.importLibrary("maps");
-    const map = new Map(element, {
-      center,
-      zoom: 15,
-      mapId: 'YONAYONA_DINNER_MAP'
-    });
-    return { success: true, data: map };
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        type: 'INITIALIZATION_FAILED',
-        message: error.message
-      }
-    };
-  }
-}
-
-export function displayMarkers({
-  map,
-  places
-}: {
-  map: google.maps.Map;
-  places: Place[];
-}): Result<void, MarkerError> {
-  try {
-    places.forEach(place => {
-      new google.maps.Marker({
-        position: place.location,
-        map,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          fillColor: '#FFD700', // 黄金色
-          fillOpacity: 1,
-          strokeWeight: 2,
-          strokeColor: '#FFFFFF',
-          scale: 8
-        }
-      });
-    });
-    return { success: true, data: undefined };
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        type: 'MARKER_CREATION_FAILED',
-        message: error.message
-      }
-    };
-  }
-}
-
-// client/src/services/places-service.ts
-export async function searchNearby({
-  location,
-  radius
-}: {
-  location: LatLng;
-  radius: number;
-}): Promise<Result<Place[], PlacesAPIError>> {
-  try {
-    const response = await fetch('/api/places/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ location, radius })
-    });
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: {
-          type: 'NETWORK_ERROR',
-          message: `HTTP ${response.status}`
-        }
-      };
-    }
-
-    const data = await response.json();
-    return { success: true, data };
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        type: 'NETWORK_ERROR',
-        message: error.message
-      }
-    };
-  }
-}
-```
-
-**トレードオフ**:
-- **利点**:
-  - サーバーサイドのテスタビリティ向上（モックによるユニットテスト）
-  - 疎結合なアーキテクチャ（外部APIの差し替え容易）
-  - ビジネスロジックの再利用性（Loader、Action、API Routeから共通利用）
-- **欠点**:
-  - サーバーサイドのみクラスベース（学習コスト増加）
-  - Loaderでのインスタンス化コード（ボイラープレート増加）
-- **判断基準**:
-  - 外部通信を行う場合のみDI適用（Places API）
-  - それ以外は関数ベース（クライアントサイド全体、サーバーのutils等）

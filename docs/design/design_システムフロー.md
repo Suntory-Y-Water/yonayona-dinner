@@ -27,19 +27,19 @@ sequenceDiagram
     C->>M: 地図初期化
     M-->>C: 地図表示完了
 
-    C->>S: POST /api/places/search<br/>{lat, lng, radius}
-    S->>K: キャッシュキー確認
+    C->>S: POST /api/places/search<br/>{lat, lng, radius, targetTime}
+    S->>K: キャッシュキー確認（targetTime含む）
 
     alt キャッシュヒット
         K-->>S: キャッシュデータ
     else キャッシュミス
         S->>P: Nearby Search API
         P-->>S: 店舗データ（20件）
+        S->>S: 営業時間フィルタリング<br/>Domain Service呼び出し
         S->>K: キャッシュ保存（TTL: 5分）
     end
 
-    S-->>C: 店舗データ（生データ）
-    C->>C: 営業時間フィルタリング<br/>isOpenAt(targetTime)
+    S-->>C: FilteredPlace[]<br/>（営業中のみ+残り時間）
     C->>M: マーカー配置（黄金色ピン）
     M-->>U: 営業中店舗のみ表示
 

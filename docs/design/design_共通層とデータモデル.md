@@ -9,6 +9,7 @@
 **コアコンセプト**:
 
 - **Place（店舗）**: 値オブジェクト、営業時間情報を含む飲食店の基本情報
+- **FilteredPlace（フィルタ済み店舗）**: 値オブジェクト、Place + 残り時間情報
 - **OpeningHours（営業時間）**: 値オブジェクト、営業時間帯のリストと営業中フラグ
 - **Location（位置情報）**: 値オブジェクト、緯度・経度の座標
 - **SearchCriteria（検索条件）**: 値オブジェクト、位置情報・半径・時間帯を含む検索パラメータ
@@ -75,6 +76,11 @@ classDiagram
 2. **座標の有効性**: 緯度は-90~90、経度は-180~180の範囲内
 3. **半径の妥当性**: 半径は1~50000メートルの範囲内
 4. **営業中判定**: `currentOpeningHours.periods`を基に、24時跨ぎを考慮した判定を実行
+5. **タイムゾーン戦略**: すべての時刻計算は**日本標準時（JST, UTC+9）**で実行される
+   - Google Places APIの営業時間情報は日本国内店舗の現地時刻（JST）
+   - クライアントから送信される`targetTime`はJSTとして解釈される
+   - サーバー側の時刻計算は`date-fns-tz`を使用してJST固定で実行
+   - エッジランタイム（Cloudflare Workers）でもタイムゾーンを明示的に扱う
 
 ### 論理データモデル
 
@@ -144,6 +150,7 @@ type SearchNearbyRequest = {
     lng: number;
   };
   radius: number;
+  targetTime: string; // ISO 8601形式 "yyyy-MM-ddTHH:mm:ss"
 };
 ```
 
@@ -151,8 +158,12 @@ type SearchNearbyRequest = {
 
 ```typescript
 // サーバー → クライアント
-type PlacesSearchResponse = {
-  places: Place[];
+type FilteredPlacesResponse = {
+  places: FilteredPlace[];
+};
+
+type FilteredPlace = Place & {
+  remainingMinutes: number; // 閉店までの残り時間（分）
 };
 ```
 
@@ -173,6 +184,11 @@ function validateSearchRequest({
   }
   if (req.radius < 1 || req.radius > 50000) {
     return { success: false, error: 'INVALID_RADIUS' };
+  }
+  // targetTime形式検証
+  const targetDate = new Date(req.targetTime);
+  if (isNaN(targetDate.getTime())) {
+    return { success: false, error: 'INVALID_TARGET_TIME' };
   }
   return { success: true, data: req };
 }

@@ -1,3 +1,4 @@
+import { JstTimeStringSchema } from "yonayona-dinner-shared";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { Env, SearchNearbyRequest } from "yonayona-dinner-shared";
 import { SearchPlacesLoader } from "./search-places-loader";
@@ -23,6 +24,7 @@ describe("SearchPlacesLoaderの挙動", () => {
     const request: SearchNearbyRequest = {
       location: { lat: 35, lng: 139 },
       radius: 600,
+      targetTime: JstTimeStringSchema.parse("2025-10-26T23:00:00"),
     };
 
     const fetchSpy = mock<FetchMock>(

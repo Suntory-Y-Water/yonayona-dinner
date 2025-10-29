@@ -150,6 +150,129 @@ export const PlaceSchema = z.object({
 export type Place = z.infer<typeof PlaceSchema>;
 
 /**
+ * 営業状態情報のスキーマ
+ *
+ * バックエンドで整形済みの営業ステータスを表現し、
+ * フロントエンドは`statusText`をそのまま表示するだけでよい。
+ *
+ * @example
+ * ```ts
+ * const result = BusinessStatusSchema.parse({
+ *   isOpenNow: true,
+ *   remainingMinutes: 75,
+ *   statusText: "営業中（あと1時間15分）",
+ * });
+ * console.log(result.statusText); // "営業中（あと1時間15分）"
+ * ```
+ */
+export const BusinessStatusSchema = z.object({
+  /** 現在営業中かどうか */
+  isOpenNow: z.boolean(),
+  /** 閉店までの残り時間（分、0の場合は閉店済みまたは情報無し扱い） */
+  remainingMinutes: z.number().int().min(0),
+  /** 表示用ステータステキスト（例: 営業中（あと20分）） */
+  statusText: z.string(),
+});
+
+/**
+ * 営業状態情報
+ */
+export type BusinessStatus = z.infer<typeof BusinessStatusSchema>;
+
+/**
+ * 表示用営業時間情報のスキーマ
+ *
+ * @example
+ * ```ts
+ * const result = OpeningHoursDisplaySchema.parse({
+ *   todayHours: "18:00～翌2:00",
+ * });
+ * console.log(result.todayHours); // "18:00～翌2:00"
+ * ```
+ */
+export const OpeningHoursDisplaySchema = z.object({
+  /** 今日の営業時間（例: "10:30～19:30", "定休日"） */
+  todayHours: z.string(),
+});
+
+/**
+ * 表示用営業時間情報
+ */
+export type OpeningHoursDisplay = z.infer<typeof OpeningHoursDisplaySchema>;
+
+/**
+ * 表示用店舗情報のスキーマ
+ *
+ * PlaceSchemaから営業時間の生データを除き、
+ * バックエンドで加工済みの情報を付与する。
+ *
+ * @example
+ * ```ts
+ * const display = DisplayPlaceSchema.parse({
+ *   id: "ChIJ...",
+ *   displayName: "居酒屋やまと",
+ *   formattedAddress: "東京都新宿区...",
+ *   location: { lat: 35.6762, lng: 139.6503 },
+ *   businessStatus: {
+ *     isOpenNow: true,
+ *     remainingMinutes: 120,
+ *     statusText: "営業中（あと2時間）",
+ *   },
+ *   openingHoursDisplay: {
+ *     todayHours: "18:00～翌2:00",
+ *   },
+ * });
+ * console.log(display.businessStatus.statusText); // "営業中（あと2時間）"
+ * ```
+ */
+export const DisplayPlaceSchema = PlaceSchema.omit({
+  currentOpeningHours: true,
+}).extend({
+  /** 営業ステータス */
+  businessStatus: BusinessStatusSchema,
+  /** 表示用営業時間 */
+  openingHoursDisplay: OpeningHoursDisplaySchema,
+});
+
+/**
+ * 表示用店舗情報
+ */
+export type DisplayPlace = z.infer<typeof DisplayPlaceSchema>;
+
+/**
+ * 営業中店舗情報（残り時間付き）のスキーマ
+ *
+ * @example
+ * ```ts
+ * const result = FilteredPlaceSchema.safeParse({
+ *   id: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+ *   displayName: "居酒屋やまと",
+ *   location: { lat: 35.6762, lng: 139.6503 },
+ *   formattedAddress: "東京都新宿区...",
+ *   remainingMinutes: 120,
+ * });
+ * if (result.success) {
+ *   console.log(result.data.remainingMinutes); // 120
+ * }
+ * ```
+ * @deprecated DisplayPlaceSchemaを使用してください。
+ */
+export const FilteredPlaceSchema = PlaceSchema.extend({
+  /** 閉店までの残り時間（分、0以上の整数） */
+  remainingMinutes: z
+    .number()
+    .int()
+    .min(0, "remainingMinutesは0以上の整数である必要があります"),
+});
+
+/**
+ * 営業中店舗情報（残り時間付き）
+ *
+ * @deprecated DisplayPlaceを使用してください。
+ */
+export type FilteredPlace = z.infer<typeof FilteredPlaceSchema>;
+
+/**
  * Places APIでのエラー種別のスキーマ
  *
  * @example
@@ -174,13 +297,47 @@ export const PlacesAPIErrorSchema = z.discriminatedUnion("type", [
 export type PlacesAPIError = z.infer<typeof PlacesAPIErrorSchema>;
 
 /**
+ * JST時刻文字列のスキーマ（yyyy-MM-ddTHH:mm:ss形式）
+ *
+ * Brand型により、単なる文字列と区別し、型安全性を確保する。
+ * 営業中判定、残り時間計算など、様々な用途で使用される。
+ *
+ * @example
+ * ```ts
+ * const schema = JstTimeStringSchema;
+ * const result = schema.parse("2025-10-27T20:00:00");
+ * // result型: string & { readonly __brand: "JstTimeString" }
+ * ```
+ */
+export const JstTimeStringSchema = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/,
+    "JST時刻はyyyy-MM-ddTHH:mm:ss形式である必要があります",
+  )
+  .brand("JstTimeString");
+
+/**
+ * JST時刻文字列の型（yyyy-MM-ddTHH:mm:ss形式）
+ *
+ * Brand型により、フォーマット保証された時刻文字列のみを表現する。
+ *
+ * @example
+ * ```ts
+ * const time: JstTimeString = JstTimeStringSchema.parse("2025-10-27T20:00:00");
+ * ```
+ */
+export type JstTimeString = z.infer<typeof JstTimeStringSchema>;
+
+/**
  * 周辺検索の入力のスキーマ
  *
  * @example
  * ```ts
  * const result = SearchNearbyRequestSchema.safeParse({
  *   location: { lat: 35.6762, lng: 139.6503 },
- *   radius: 1000
+ *   radius: 1000,
+ *   targetTime: "2025-10-26T23:00:00+09:00"
  * });
  * ```
  */
@@ -198,6 +355,14 @@ export const SearchNearbyRequestSchema = z.object({
       (value) => value >= 1 && value <= 50000,
       "半径は1から50000の範囲である必要があります",
     ),
+  /**
+   * 営業中判定に使用する目標時刻（JST基準、ISO 8601形式）
+   *
+   * 形式: "yyyy-MM-ddTHH:mm:ss" (例: "2025-10-27T20:00:00")
+   * タイムゾーン: 常にJST（Asia/Tokyo）として解釈される
+   * Brand型により、フォーマット保証された文字列のみを受け入れる
+   */
+  targetTime: JstTimeStringSchema,
 });
 
 /**
@@ -224,6 +389,76 @@ export const PlacesSearchResponseSchema = z.object({
  * Places APIの検索レスポンス
  */
 export type PlacesSearchResponse = z.infer<typeof PlacesSearchResponseSchema>;
+
+/**
+ * 営業中店舗レスポンスのスキーマ
+ *
+ * @example
+ * ```ts
+ * const result = FilteredPlacesResponseSchema.safeParse({
+ *   places: [
+ *     {
+ *       id: "ChIJ...",
+ *       displayName: "居酒屋 example",
+ *       location: { lat: 35.68, lng: 139.76 },
+ *       formattedAddress: "東京都...",
+ *       remainingMinutes: 60,
+ *     },
+ *   ],
+ * });
+ * if (result.success) {
+ *   console.log(result.data.places[0]?.remainingMinutes); // 60
+ * }
+ * ```
+ * @deprecated DisplayPlacesResponseSchemaを使用してください。
+ */
+export const FilteredPlacesResponseSchema = z.object({
+  /** 営業中店舗リスト */
+  places: z.array(FilteredPlaceSchema),
+});
+
+/**
+ * 営業中店舗レスポンス
+ */
+export type FilteredPlacesResponse = z.infer<
+  typeof FilteredPlacesResponseSchema
+>;
+
+/**
+ * 表示用店舗レスポンスのスキーマ
+ *
+ * @example
+ * ```ts
+ * const result = DisplayPlacesResponseSchema.parse({
+ *   places: [
+ *     {
+ *       id: "ChIJ...",
+ *       displayName: "居酒屋 example",
+ *       formattedAddress: "東京都...",
+ *       location: { lat: 35.68, lng: 139.76 },
+ *       businessStatus: {
+ *         isOpenNow: true,
+ *         remainingMinutes: 90,
+ *         statusText: "営業中（あと1時間30分）",
+ *       },
+ *       openingHoursDisplay: {
+ *         todayHours: "17:00～23:00",
+ *       },
+ *     },
+ *   ],
+ * });
+ * console.log(result.places[0]?.openingHoursDisplay.todayHours); // "17:00～23:00"
+ * ```
+ */
+export const DisplayPlacesResponseSchema = z.object({
+  /** 表示用の営業中店舗リスト */
+  places: z.array(DisplayPlaceSchema),
+});
+
+/**
+ * 表示用店舗レスポンス
+ */
+export type DisplayPlacesResponse = z.infer<typeof DisplayPlacesResponseSchema>;
 
 /**
  * 成功・失敗を表すResult型

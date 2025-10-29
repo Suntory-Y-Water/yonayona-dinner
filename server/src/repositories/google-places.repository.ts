@@ -70,6 +70,7 @@ export class GooglePlacesRepository implements IPlacesRepository {
     const body = JSON.stringify({
       includedTypes: ["restaurant", "cafe", "bar"],
       maxResultCount: 20,
+      languageCode: "ja",
       locationRestriction: {
         circle: {
           center: {
@@ -82,6 +83,7 @@ export class GooglePlacesRepository implements IPlacesRepository {
     });
 
     try {
+      // Cloudflare WorkersだとSDKが動かない可能性あるため、fetchで直接叩く
       const response = await fetch(PLACES_ENDPOINT, {
         method: "POST",
         headers: {
