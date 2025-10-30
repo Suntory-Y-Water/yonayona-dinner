@@ -176,6 +176,16 @@ export const BusinessStatusSchema = z.object({
 
 /**
  * 営業状態情報
+ *
+ * @example
+ * ```ts
+ * const status: BusinessStatus = {
+ *   isOpenNow: true,
+ *   remainingMinutes: 75,
+ *   statusText: "営業中（あと1時間15分）",
+ * };
+ * console.log(status.statusText); // "営業中（あと1時間15分）"
+ * ```
  */
 export type BusinessStatus = z.infer<typeof BusinessStatusSchema>;
 
@@ -197,6 +207,14 @@ export const OpeningHoursDisplaySchema = z.object({
 
 /**
  * 表示用営業時間情報
+ *
+ * @example
+ * ```ts
+ * const display: OpeningHoursDisplay = {
+ *   todayHours: "18:00～翌2:00",
+ * };
+ * console.log(display.todayHours); // "18:00～翌2:00"
+ * ```
  */
 export type OpeningHoursDisplay = z.infer<typeof OpeningHoursDisplaySchema>;
 
@@ -236,6 +254,25 @@ export const DisplayPlaceSchema = PlaceSchema.omit({
 
 /**
  * 表示用店舗情報
+ *
+ * @example
+ * ```ts
+ * const place: DisplayPlace = {
+ *   id: "ChIJ123456",
+ *   displayName: "居酒屋サンプル",
+ *   formattedAddress: "東京都千代田区丸の内1-1-1",
+ *   location: { lat: 35.6812, lng: 139.7671 },
+ *   businessStatus: {
+ *     isOpenNow: true,
+ *     remainingMinutes: 120,
+ *     statusText: "営業中（あと2時間）",
+ *   },
+ *   openingHoursDisplay: {
+ *     todayHours: "18:00～翌2:00",
+ *   },
+ * };
+ * console.log(place.businessStatus.statusText); // "営業中（あと2時間）"
+ * ```
  */
 export type DisplayPlace = z.infer<typeof DisplayPlaceSchema>;
 
@@ -336,9 +373,12 @@ export type JstTimeString = z.infer<typeof JstTimeStringSchema>;
  * ```ts
  * const result = SearchNearbyRequestSchema.safeParse({
  *   location: { lat: 35.6762, lng: 139.6503 },
- *   radius: 1000,
- *   targetTime: "2025-10-26T23:00:00+09:00"
+ *   radius: 800,
+ *   targetTime: "2025-10-30T23:00:00",
  * });
+ * if (result.success) {
+ *   console.log(result.data.targetTime); // "2025-10-30T23:00:00"
+ * }
  * ```
  */
 export const SearchNearbyRequestSchema = z.object({
@@ -367,6 +407,16 @@ export const SearchNearbyRequestSchema = z.object({
 
 /**
  * 周辺検索の入力
+ *
+ * @example
+ * ```ts
+ * const request: SearchNearbyRequest = {
+ *   location: { lat: 35.6762, lng: 139.6503 },
+ *   radius: 800,
+ *   targetTime: "2025-10-30T23:00:00",
+ * };
+ * console.log(request.targetTime); // "2025-10-30T23:00:00"
+ * ```
  */
 export type SearchNearbyRequest = z.infer<typeof SearchNearbyRequestSchema>;
 

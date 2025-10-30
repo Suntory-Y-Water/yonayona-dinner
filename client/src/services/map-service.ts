@@ -3,7 +3,7 @@ import {
   importLibrary,
   setOptions,
 } from "@googlemaps/js-api-loader";
-import type { LatLng, Result } from "shared";
+import type { DisplayPlace, LatLng, Result } from "shared";
 
 /**
  * 地図エラーの種類
@@ -21,16 +21,6 @@ export type MarkerError =
   | { type: "INVALID_LOCATION"; message: string }
   | { type: "MARKER_CREATION_FAILED"; message: string }
   | { type: "INVALID_MAP"; message: string };
-
-/**
- * 簡易的な店舗情報（マーカー表示用）
- */
-export type PlaceForMarker = {
-  id: string;
-  displayName: string;
-  location: LatLng;
-  formattedAddress: string;
-};
 
 /**
  * Google Maps APIを初期化し、地図を表示する
@@ -121,16 +111,27 @@ export async function initializeMap({
 }
 
 /**
- * 地図上にマーカーを表示する
- * @param map Google Mapsインスタンス
- * @param places 店舗情報の配列
+ * 地図上にマーカーを表示する。
+ *
+ * @param params マーカー表示に必要な情報
+ *
+ * @example
+ * ```ts
+ * await displayMarkers({
+ *   map,
+ *   places,
+ *   onMarkerClick: (place) => console.log(place.displayName),
+ * });
+ * ```
  */
 export async function displayMarkers({
   map,
   places,
+  onMarkerClick,
 }: {
   map: google.maps.Map;
-  places: PlaceForMarker[];
+  places: DisplayPlace[];
+  onMarkerClick: (place: DisplayPlace) => void;
 }): Promise<Result<void, MarkerError>> {
   // 地図インスタンスのバリデーション
   if (!map) {
@@ -161,6 +162,10 @@ export async function displayMarkers({
         map,
         title: place.displayName,
         content: pin.element,
+      });
+
+      marker.addListener("click", () => {
+        onMarkerClick(place);
       });
 
       return marker;
