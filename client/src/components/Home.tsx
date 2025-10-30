@@ -1,12 +1,42 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { DisplayPlace, LatLng } from "shared";
+import { PlaceDetailPanel } from "@/components/PlaceDetailPanel";
 import { Button } from "@/components/ui/button";
+import { openGoogleMaps } from "@/lib/navigation-utils";
+import { formatToJstTimeString } from "@/lib/time-utils";
 import { getCurrentLocation } from "@/services/geolocation-service";
-import { initializeMap } from "@/services/map-service";
+import {
+  clearMarkers,
+  displayMarkers,
+  initializeMap,
+} from "@/services/map-service";
+import { searchNearby } from "@/services/places-service";
 
+/**
+ * 地図表示と店舗検索を提供するホーム画面コンポーネント。
+ *
+ * @example
+ * ```tsx
+ * export function App(): JSX.Element {
+ *   return <Home />;
+ * }
+ * ```
+ */
 export default function Home() {
   const mapRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<DisplayPlace | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [places, setPlaces] = useState<DisplayPlace[]>([]);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
+  const [targetTime] = useState<string>("23:00");
+  const [isSearching, setIsSearching] = useState(false);
+  const handleMarkerClick = useCallback((place: DisplayPlace) => {
+    setSelectedPlace(place);
+    setIsPanelOpen(true);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -38,14 +68,20 @@ export default function Home() {
               locationResult.error.message,
           );
           setIsLoading(false);
+          setCurrentLocation(null);
+          setMap(null);
           return;
         }
+
+        if (!isMounted) return;
+        setCurrentLocation(locationResult.data);
 
         // 地図を初期化
         if (!mapRef.current) {
           if (!isMounted) return;
           setError("地図の表示に失敗しました。");
           setIsLoading(false);
+          setMap(null);
           return;
         }
 
@@ -69,10 +105,13 @@ export default function Home() {
             errorMessages[mapResult.error.type] || mapResult.error.message,
           );
           setIsLoading(false);
+          setMap(null);
           return;
         }
 
         if (!isMounted) return;
+        setMap(mapResult.data);
+        setError(null);
         setIsLoading(false);
       } catch (err) {
         if (!isMounted) return;
@@ -82,6 +121,8 @@ export default function Home() {
             : "予期しないエラーが発生しました。",
         );
         setIsLoading(false);
+        setMap(null);
+        setCurrentLocation(null);
       }
     }
 
@@ -92,17 +133,112 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const mapInstance = map;
+    const locationForSearch = currentLocation;
+
+    if (!mapInstance || !locationForSearch) {
+      return;
+    }
+
+    const stableLocation: LatLng = locationForSearch;
+
+    let isActive = true;
+    setIsSearching(true);
+    setError(null);
+
+    async function fetchNearbyPlaces() {
+      const jstTime = formatToJstTimeString({
+        date: new Date(),
+        time: targetTime,
+      });
+
+      const result = await searchNearby({
+        location: stableLocation,
+        radius: 800,
+        targetTime: jstTime,
+      });
+
+      if (!isActive) {
+        return;
+      }
+
+      setIsSearching(false);
+
+      if (result.success) {
+        setPlaces(result.data.places);
+        setSelectedPlace(null);
+        setIsPanelOpen(false);
+        return;
+      }
+
+      setPlaces([]);
+      setError(result.error.message);
+    }
+
+    fetchNearbyPlaces();
+
+    return () => {
+      isActive = false;
+    };
+  }, [map, currentLocation, targetTime]);
+
+  useEffect(() => {
+    const mapInstance = map;
+
+    clearMarkers();
+
+    if (!mapInstance) {
+      return;
+    }
+
+    const stableMap: google.maps.Map = mapInstance;
+
+    if (places.length === 0) {
+      return;
+    }
+
+    let isActive = true;
+
+    async function placeMarkers() {
+      const result = await displayMarkers({
+        map: stableMap,
+        places,
+        onMarkerClick: handleMarkerClick,
+      });
+
+      if (!isActive) {
+        return;
+      }
+
+      if (!result.success) {
+        setError(result.error.message);
+      }
+    }
+
+    placeMarkers();
+
+    return () => {
+      isActive = false;
+      clearMarkers();
+    };
+  }, [map, places, handleMarkerClick]);
+
   return (
     <div className="relative w-full h-screen">
       {/* 地図コンテナ */}
       <div ref={mapRef} className="w-full h-full" />
 
       {/* ローディング表示 */}
-      {isLoading && (
+      {(isLoading || isSearching) && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#1d2c4d]">
           <div className="text-center">
             <div className="inline-block w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-            <p className="mt-4 text-white text-lg">地図を読み込んでいます...</p>
+            <p className="mt-4 text-white text-lg">
+              {isLoading
+                ? "地図を読み込んでいます..."
+                : "店舗を検索しています..."}
+            </p>
           </div>
         </div>
       )}
@@ -124,6 +260,16 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      <PlaceDetailPanel
+        place={selectedPlace}
+        isOpen={isPanelOpen && !!selectedPlace}
+        onClose={() => {
+          setIsPanelOpen(false);
+          setSelectedPlace(null);
+        }}
+        onNavigate={openGoogleMaps}
+      />
     </div>
   );
 }
