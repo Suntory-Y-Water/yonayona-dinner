@@ -42,5 +42,5 @@
     "**/.next": true,
     "**/coverage": true
   },
-  "typescript.tsserver.log": "off",
+  "typescript.tsserver.log": "off"
 }
