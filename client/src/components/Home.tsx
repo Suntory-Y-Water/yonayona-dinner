@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DisplayPlace, LatLng } from "shared";
 import { PlaceDetailPanel } from "@/components/PlaceDetailPanel";
+import { TimeFilter } from "@/components/TimeFilter";
 import { Button } from "@/components/ui/button";
 import { openGoogleMaps } from "@/lib/navigation-utils";
 import { formatToJstTimeString } from "@/lib/time-utils";
+import { filterOpenPlaces } from "@/lib/opening-hours-utils";
 import { getCurrentLocation } from "@/services/geolocation-service";
 import {
   clearMarkers,
@@ -28,10 +30,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<DisplayPlace | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [allPlaces, setAllPlaces] = useState<DisplayPlace[]>([]);
   const [places, setPlaces] = useState<DisplayPlace[]>([]);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
-  const [targetTime] = useState<string>("23:00");
+  const [targetTime, setTargetTime] = useState<string>("23:00");
   const [isSearching, setIsSearching] = useState(false);
   const handleMarkerClick = useCallback((place: DisplayPlace) => {
     setSelectedPlace(place);
@@ -166,13 +169,13 @@ export default function Home() {
       setIsSearching(false);
 
       if (result.success) {
-        setPlaces(result.data.places);
+        setAllPlaces(result.data.places);
         setSelectedPlace(null);
         setIsPanelOpen(false);
         return;
       }
 
-      setPlaces([]);
+      setAllPlaces([]);
       setError(result.error.message);
     }
 
@@ -181,7 +184,22 @@ export default function Home() {
     return () => {
       isActive = false;
     };
-  }, [map, currentLocation, targetTime]);
+  }, [map, currentLocation]);
+
+  useEffect(() => {
+    if (allPlaces.length === 0) {
+      setPlaces([]);
+      return;
+    }
+
+    const jstTime = formatToJstTimeString({
+      date: new Date(),
+      time: targetTime,
+    });
+
+    const filtered = filterOpenPlaces(allPlaces, jstTime);
+    setPlaces(filtered);
+  }, [allPlaces, targetTime]);
 
   useEffect(() => {
     const mapInstance = map;
@@ -228,6 +246,16 @@ export default function Home() {
     <div className="relative w-full h-screen">
       {/* 地図コンテナ */}
       <div ref={mapRef} className="w-full h-full" />
+
+      {/* 時間帯フィルタUI */}
+      {!isLoading && !error && (
+        <div className="absolute top-4 left-4 right-4 z-10">
+          <TimeFilter
+            selectedTime={targetTime}
+            onTimeChange={setTargetTime}
+          />
+        </div>
+      )}
 
       {/* ローディング表示 */}
       {(isLoading || isSearching) && (

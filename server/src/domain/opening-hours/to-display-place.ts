@@ -57,6 +57,7 @@ export function toDisplayPlace({
     }),
     location: place.location,
     rating: place.rating,
+    currentOpeningHours: place.currentOpeningHours,
     businessStatus,
     openingHoursDisplay,
   };
