@@ -15,10 +15,10 @@ describe("isOpenAt", () => {
       weekdayDescriptions: ["月曜日: 18:00-23:00"],
     };
 
-    const result = isOpenAt(
+    const result = isOpenAt({
       openingHours,
-      "2025-10-27T20:00:00" as JstTimeString,
-    );
+      targetTime: "2025-10-27T20:00:00" as JstTimeString,
+    });
 
     expect(result).toBe(true);
   });
@@ -35,10 +35,10 @@ describe("isOpenAt", () => {
       weekdayDescriptions: ["月曜日: 18:00-23:00"],
     };
 
-    const result = isOpenAt(
+    const result = isOpenAt({
       openingHours,
-      "2025-10-27T12:00:00" as JstTimeString,
-    );
+      targetTime: "2025-10-27T12:00:00" as JstTimeString,
+    });
 
     expect(result).toBe(false);
   });
@@ -55,16 +55,19 @@ describe("isOpenAt", () => {
       weekdayDescriptions: ["日曜日: 22:00-翌2:00"],
     };
 
-    const result = isOpenAt(
+    const result = isOpenAt({
       openingHours,
-      "2025-10-27T00:30:00" as JstTimeString,
-    );
+      targetTime: "2025-10-27T00:30:00" as JstTimeString,
+    });
 
     expect(result).toBe(true);
   });
 
   test("営業時間情報がない場合はfalseを返す", () => {
-    const result = isOpenAt(undefined, "2025-10-27T20:00:00" as JstTimeString);
+    const result = isOpenAt({
+      openingHours: undefined,
+      targetTime: "2025-10-27T20:00:00" as JstTimeString,
+    });
 
     expect(result).toBe(false);
   });
@@ -123,10 +126,10 @@ describe("filterOpenPlaces", () => {
       },
     ];
 
-    const result = filterOpenPlaces(
+    const result = filterOpenPlaces({
       places,
-      "2025-10-27T20:00:00" as JstTimeString,
-    );
+      targetTime: "2025-10-27T20:00:00" as JstTimeString,
+    });
 
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe("place1");
@@ -150,10 +153,10 @@ describe("filterOpenPlaces", () => {
       },
     ];
 
-    const result = filterOpenPlaces(
+    const result = filterOpenPlaces({
       places,
-      "2025-10-27T20:00:00" as JstTimeString,
-    );
+      targetTime: "2025-10-27T20:00:00" as JstTimeString,
+    });
 
     expect(result).toHaveLength(0);
   });

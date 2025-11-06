@@ -197,7 +197,10 @@ export default function Home() {
       time: targetTime,
     });
 
-    const filtered = filterOpenPlaces(allPlaces, jstTime);
+    const filtered = filterOpenPlaces({
+      places: allPlaces,
+      targetTime: jstTime,
+    });
     setPlaces(filtered);
   }, [allPlaces, targetTime]);
 
@@ -250,10 +253,7 @@ export default function Home() {
       {/* 時間帯フィルタUI */}
       {!isLoading && !error && (
         <div className="absolute top-4 left-4 right-4 z-10">
-          <TimeFilter
-            selectedTime={targetTime}
-            onTimeChange={setTargetTime}
-          />
+          <TimeFilter selectedTime={targetTime} onTimeChange={setTargetTime} />
         </div>
       )}
 

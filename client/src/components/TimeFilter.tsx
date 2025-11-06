@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils";
-
 type TimeOption = {
   value: string;
   label: string;
@@ -14,20 +12,27 @@ type TimeOption = {
  *
  * @example
  * ```ts
- * const options = generateTimeOptions(22, 26);
+ * const options = generateTimeOptions({ startHour: 22, endHour: 26 });
  * // [{ value: "22:00", label: "22:00" }, { value: "22:15", label: "22:15" }, ...]
  * ```
  */
-function generateTimeOptions(startHour: number, endHour: number): TimeOption[] {
+function generateTimeOptions({
+  startHour,
+  endHour,
+}: {
+  startHour: number;
+  endHour: number;
+}): TimeOption[] {
   const options: TimeOption[] = [];
 
   for (let hour = startHour; hour <= endHour; hour++) {
     for (let minute = 0; minute < 60; minute += 15) {
       const displayHour = hour > 23 ? hour - 24 : hour;
       const value = `${String(displayHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-      const label = hour > 23
-        ? `翌${displayHour}:${String(minute).padStart(2, "0")}`
-        : `${displayHour}:${String(minute).padStart(2, "0")}`;
+      const label =
+        hour > 23
+          ? `翌${displayHour}:${String(minute).padStart(2, "0")}`
+          : `${displayHour}:${String(minute).padStart(2, "0")}`;
       options.push({ value, label });
     }
   }
@@ -35,7 +40,7 @@ function generateTimeOptions(startHour: number, endHour: number): TimeOption[] {
   return options;
 }
 
-const TIME_OPTIONS = generateTimeOptions(22, 26);
+const TIME_OPTIONS = generateTimeOptions({ startHour: 22, endHour: 26 });
 
 /**
  * 時間帯フィルタUIコンポーネント。
@@ -54,23 +59,18 @@ const TIME_OPTIONS = generateTimeOptions(22, 26);
 export function TimeFilter({
   selectedTime,
   onTimeChange,
-  className,
 }: {
   /** 選択中の時刻（HH:mm形式） */
   selectedTime: string;
   /** 時刻変更時のコールバック */
   onTimeChange: (time: string) => void;
-  /** 追加のCSSクラス */
-  className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-4 py-3 bg-[#1e1b3a]/90 backdrop-blur-sm border border-yellow-400/20 rounded-lg shadow-lg",
-        className,
-      )}
-    >
-      <label htmlFor="time-filter" className="text-sm font-medium text-white whitespace-nowrap">
+    <div className="flex items-center gap-3 px-4 py-3 bg-[#1e1b3a]/90 backdrop-blur-sm border border-yellow-400/20 rounded-lg shadow-lg">
+      <label
+        htmlFor="time-filter"
+        className="text-sm font-medium text-white whitespace-nowrap"
+      >
         営業時刻
       </label>
       <select
