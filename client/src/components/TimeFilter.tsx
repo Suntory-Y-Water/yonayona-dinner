@@ -1,3 +1,24 @@
+/** 時間帯選択の開始時刻（22時から選択可能） */
+const TIME_FILTER_START_HOUR = 22;
+
+/** 時間帯選択の終了時刻（翌2時まで選択可能、26と表現） */
+const TIME_FILTER_END_HOUR = 26;
+
+/** 時間帯選択の間隔（分） */
+const TIME_FILTER_INTERVAL_MINUTES = 15;
+
+/** 1日の時間数 */
+const HOURS_PER_DAY = 24;
+
+/** 1時間の分数 */
+const MINUTES_PER_HOUR = 60;
+
+/** 時刻フォーマット時の桁数 */
+const TIME_FORMAT_PADDING = 2;
+
+/** 時刻フォーマット時のパディング文字 */
+const TIME_FORMAT_PAD_CHAR = "0";
+
 type TimeOption = {
   value: string;
   label: string;
@@ -26,13 +47,17 @@ function generateTimeOptions({
   const options: TimeOption[] = [];
 
   for (let hour = startHour; hour <= endHour; hour++) {
-    for (let minute = 0; minute < 60; minute += 15) {
-      const displayHour = hour > 23 ? hour - 24 : hour;
-      const value = `${String(displayHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    for (
+      let minute = 0;
+      minute < MINUTES_PER_HOUR;
+      minute += TIME_FILTER_INTERVAL_MINUTES
+    ) {
+      const displayHour = hour > HOURS_PER_DAY - 1 ? hour - HOURS_PER_DAY : hour;
+      const value = `${String(displayHour).padStart(TIME_FORMAT_PADDING, TIME_FORMAT_PAD_CHAR)}:${String(minute).padStart(TIME_FORMAT_PADDING, TIME_FORMAT_PAD_CHAR)}`;
       const label =
-        hour > 23
-          ? `翌${displayHour}:${String(minute).padStart(2, "0")}`
-          : `${displayHour}:${String(minute).padStart(2, "0")}`;
+        hour > HOURS_PER_DAY - 1
+          ? `翌${displayHour}:${String(minute).padStart(TIME_FORMAT_PADDING, TIME_FORMAT_PAD_CHAR)}`
+          : `${displayHour}:${String(minute).padStart(TIME_FORMAT_PADDING, TIME_FORMAT_PAD_CHAR)}`;
       options.push({ value, label });
     }
   }
@@ -40,7 +65,10 @@ function generateTimeOptions({
   return options;
 }
 
-const TIME_OPTIONS = generateTimeOptions({ startHour: 22, endHour: 26 });
+const TIME_OPTIONS = generateTimeOptions({
+  startHour: TIME_FILTER_START_HOUR,
+  endHour: TIME_FILTER_END_HOUR,
+});
 
 /**
  * 時間帯フィルタUIコンポーネント。
