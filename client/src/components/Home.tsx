@@ -3,6 +3,7 @@ import type { DisplayPlace, LatLng } from "shared";
 import { PlaceDetailPanel } from "@/components/PlaceDetailPanel";
 import { TimeFilter } from "@/components/TimeFilter";
 import { Button } from "@/components/ui/button";
+import { CONSTANTS } from "@/lib/constants";
 import { openGoogleMaps } from "@/lib/navigation-utils";
 import { formatToJstTimeString } from "@/lib/time-utils";
 import { getCurrentLocation } from "@/services/geolocation-service";
@@ -12,12 +13,6 @@ import {
   initializeMap,
 } from "@/services/map-service";
 import { searchNearby } from "@/services/places-service";
-
-/** デフォルトの検索半径（メートル） */
-const DEFAULT_SEARCH_RADIUS_METERS = 800;
-
-/** デフォルトの営業時刻（HH:mm形式） */
-const DEFAULT_TARGET_TIME = "23:00";
 
 /**
  * 地図表示と店舗検索を提供するホーム画面コンポーネント。
@@ -38,7 +33,7 @@ export default function Home() {
   const [places, setPlaces] = useState<DisplayPlace[]>([]);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
-  const [targetTime, setTargetTime] = useState<string>(DEFAULT_TARGET_TIME);
+  const [targetTime, setTargetTime] = useState<string>(CONSTANTS.DEFAULT_TARGET_TIME);
   const [isSearching, setIsSearching] = useState(false);
   const handleMarkerClick = useCallback((place: DisplayPlace) => {
     setSelectedPlace(place);
@@ -162,7 +157,7 @@ export default function Home() {
 
       const result = await searchNearby({
         location: stableLocation,
-        radius: DEFAULT_SEARCH_RADIUS_METERS,
+        radius: CONSTANTS.DEFAULT_SEARCH_RADIUS_METERS,
         targetTime: jstTime,
       });
 
