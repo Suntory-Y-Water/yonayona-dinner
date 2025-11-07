@@ -243,7 +243,9 @@ export type OpeningHoursDisplay = z.infer<typeof OpeningHoursDisplaySchema>;
  * console.log(display.businessStatus.statusText); // "営業中（あと2時間）"
  * ```
  */
-export const DisplayPlaceSchema = PlaceSchema.extend({
+export const DisplayPlaceSchema = PlaceSchema.omit({
+  currentOpeningHours: true,
+}).extend({
   /** 営業ステータス */
   businessStatus: BusinessStatusSchema,
   /** 表示用営業時間 */

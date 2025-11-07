@@ -5,7 +5,6 @@ import { TimeFilter } from "@/components/TimeFilter";
 import { Button } from "@/components/ui/button";
 import { openGoogleMaps } from "@/lib/navigation-utils";
 import { formatToJstTimeString } from "@/lib/time-utils";
-import { filterOpenPlaces } from "@/lib/opening-hours-utils";
 import { getCurrentLocation } from "@/services/geolocation-service";
 import {
   clearMarkers,
@@ -30,7 +29,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<DisplayPlace | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [allPlaces, setAllPlaces] = useState<DisplayPlace[]>([]);
   const [places, setPlaces] = useState<DisplayPlace[]>([]);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
@@ -169,13 +167,13 @@ export default function Home() {
       setIsSearching(false);
 
       if (result.success) {
-        setAllPlaces(result.data.places);
+        setPlaces(result.data.places);
         setSelectedPlace(null);
         setIsPanelOpen(false);
         return;
       }
 
-      setAllPlaces([]);
+      setPlaces([]);
       setError(result.error.message);
     }
 
@@ -184,25 +182,7 @@ export default function Home() {
     return () => {
       isActive = false;
     };
-  }, [map, currentLocation]);
-
-  useEffect(() => {
-    if (allPlaces.length === 0) {
-      setPlaces([]);
-      return;
-    }
-
-    const jstTime = formatToJstTimeString({
-      date: new Date(),
-      time: targetTime,
-    });
-
-    const filtered = filterOpenPlaces({
-      places: allPlaces,
-      targetTime: jstTime,
-    });
-    setPlaces(filtered);
-  }, [allPlaces, targetTime]);
+  }, [map, currentLocation, targetTime]);
 
   useEffect(() => {
     const mapInstance = map;
