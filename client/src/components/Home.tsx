@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DisplayPlace, LatLng } from "shared";
+import { Logo } from "@/components/Logo";
 import { PlaceDetailPanel } from "@/components/PlaceDetailPanel";
 import { TimeFilter } from "@/components/TimeFilter";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,9 @@ export default function Home() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
-  const [targetTime, setTargetTime] = useState<string>(CONSTANTS.DEFAULT_TARGET_TIME);
+  const [targetTime, setTargetTime] = useState<string>(
+    CONSTANTS.DEFAULT_TARGET_TIME,
+  );
 
   // カスタムフックで検索（外部API同期）
   const {
@@ -192,9 +195,16 @@ export default function Home() {
       {/* 地図コンテナ */}
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* 時間帯フィルタUI */}
+      {/* ロゴ */}
       {!isLoading && !error && (
-        <div className="absolute top-4 left-4 right-4 z-10">
+        <div className="absolute top-4 left-4 z-10">
+          <Logo />
+        </div>
+      )}
+
+      {/* 時間帯フィルタUI（画面下部に配置） */}
+      {!isLoading && !error && (
+        <div className="absolute bottom-20 left-4 right-4 z-10">
           <TimeFilter selectedTime={targetTime} onTimeChange={setTargetTime} />
         </div>
       )}

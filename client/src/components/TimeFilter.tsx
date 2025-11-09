@@ -33,7 +33,10 @@ function generateTimeOptions({
       minute < CONSTANTS.MINUTES_PER_HOUR;
       minute += CONSTANTS.TIME_FILTER_INTERVAL_MINUTES
     ) {
-      const displayHour = hour > CONSTANTS.HOURS_PER_DAY - 1 ? hour - CONSTANTS.HOURS_PER_DAY : hour;
+      const displayHour =
+        hour > CONSTANTS.HOURS_PER_DAY - 1
+          ? hour - CONSTANTS.HOURS_PER_DAY
+          : hour;
       const value = `${String(displayHour).padStart(CONSTANTS.TIME_FORMAT_PADDING, CONSTANTS.TIME_FORMAT_PAD_CHAR)}:${String(minute).padStart(CONSTANTS.TIME_FORMAT_PADDING, CONSTANTS.TIME_FORMAT_PAD_CHAR)}`;
       const label =
         hour > CONSTANTS.HOURS_PER_DAY - 1
@@ -86,7 +89,7 @@ export function TimeFilter({
         id="time-filter"
         value={selectedTime}
         onChange={(event) => onTimeChange(event.target.value)}
-        className="flex-1 min-w-0 h-9 px-3 bg-[#1d2c4d] border border-yellow-400/30 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+        className="flex-1 min-w-0 min-h-[44px] h-11 px-3 bg-[#1d2c4d] border border-yellow-400/30 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
       >
         {TIME_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
