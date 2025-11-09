@@ -4,7 +4,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { DisplayPlace, LatLng } from "yonayona-dinner-shared";
-import { CONSTANTS } from "@/lib/constants";
 import { useAutoRelaxingSearch } from "./useAutoRelaxingSearch";
 
 // モック化
