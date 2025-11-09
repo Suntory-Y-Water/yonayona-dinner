@@ -22,7 +22,7 @@
     "deploy:client": "turbo deploy --filter=yonayona-dinner-client",
     "deploy:server": "turbo deploy --filter=yonayona-dinner-server",
     "lint": "biome lint .",
-    "type-check": "turbo type-check",
+    "typecheck": "turbo type-check",
     "test": "turbo test",
     "postinstall": "turbo build --filter=yonayona-dinner-shared --filter=yonayona-dinner-server",
     "format": "biome format . --write",
