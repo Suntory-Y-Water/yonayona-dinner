@@ -29,8 +29,9 @@
     "yonayona-dinner-shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.18.11",
+    "@testing-library/react": "^16.3.0",
     "@types/google.maps": "^3.58.1",
+    "@types/node": "^22.18.11",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/web": "^0.0.281",

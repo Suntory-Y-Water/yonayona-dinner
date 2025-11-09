@@ -3,16 +3,15 @@ import type { DisplayPlace, LatLng } from "shared";
 import { PlaceDetailPanel } from "@/components/PlaceDetailPanel";
 import { TimeFilter } from "@/components/TimeFilter";
 import { Button } from "@/components/ui/button";
+import { useAutoRelaxingSearch } from "@/hooks/useAutoRelaxingSearch";
 import { CONSTANTS } from "@/lib/constants";
 import { openGoogleMaps } from "@/lib/navigation-utils";
-import { formatToJstTimeString } from "@/lib/time-utils";
 import { getCurrentLocation } from "@/services/geolocation-service";
 import {
   clearMarkers,
   displayMarkers,
   initializeMap,
 } from "@/services/map-service";
-import { searchNearby } from "@/services/places-service";
 
 /**
  * 地図表示と店舗検索を提供するホーム画面コンポーネント。
@@ -30,11 +29,22 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<DisplayPlace | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [places, setPlaces] = useState<DisplayPlace[]>([]);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
   const [targetTime, setTargetTime] = useState<string>(CONSTANTS.DEFAULT_TARGET_TIME);
-  const [isSearching, setIsSearching] = useState(false);
+
+  // カスタムフックで検索（外部API同期）
+  const {
+    places,
+    message: searchMessage,
+    isSearching,
+    error: searchError,
+  } = useAutoRelaxingSearch({
+    location: currentLocation,
+    map,
+    userTargetTime: targetTime,
+  });
+
   const handleMarkerClick = useCallback((place: DisplayPlace) => {
     setSelectedPlace(place);
     setIsPanelOpen(true);
@@ -135,56 +145,7 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    const mapInstance = map;
-    const locationForSearch = currentLocation;
-
-    if (!mapInstance || !locationForSearch) {
-      return;
-    }
-
-    const stableLocation: LatLng = locationForSearch;
-
-    let isActive = true;
-    setIsSearching(true);
-    setError(null);
-
-    async function fetchNearbyPlaces() {
-      const jstTime = formatToJstTimeString({
-        date: new Date(),
-        time: targetTime,
-      });
-
-      const result = await searchNearby({
-        location: stableLocation,
-        radius: CONSTANTS.DEFAULT_SEARCH_RADIUS_METERS,
-        targetTime: jstTime,
-      });
-
-      if (!isActive) {
-        return;
-      }
-
-      setIsSearching(false);
-
-      if (result.success) {
-        setPlaces(result.data.places);
-        setSelectedPlace(null);
-        setIsPanelOpen(false);
-        return;
-      }
-
-      setPlaces([]);
-      setError(result.error.message);
-    }
-
-    fetchNearbyPlaces();
-
-    return () => {
-      isActive = false;
-    };
-  }, [map, currentLocation, targetTime]);
-
+  // マーカー表示（外部システム: Google Maps API との同期）
   useEffect(() => {
     const mapInstance = map;
 
@@ -238,6 +199,15 @@ export default function Home() {
         </div>
       )}
 
+      {/* 検索メッセージ表示 */}
+      {searchMessage && !isSearching && (
+        <div className="absolute top-20 left-4 right-4 z-10">
+          <div className="bg-yellow-600/90 text-white px-4 py-2 rounded-lg shadow-lg text-center">
+            {searchMessage}
+          </div>
+        </div>
+      )}
+
       {/* ローディング表示 */}
       {(isLoading || isSearching) && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#1d2c4d]">
@@ -253,13 +223,13 @@ export default function Home() {
       )}
 
       {/* エラー表示 */}
-      {error && (
+      {(error || searchError) && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#1d2c4d]">
           <div className="max-w-md p-6 bg-red-900/20 border border-red-500/30 rounded-lg">
             <h2 className="text-xl font-bold text-red-400 mb-2">
               エラーが発生しました
             </h2>
-            <p className="text-white">{error}</p>
+            <p className="text-white">{error || searchError}</p>
             <Button
               onClick={() => window.location.reload()}
               className="mt-4 bg-yellow-600 hover:bg-yellow-700 text-white"

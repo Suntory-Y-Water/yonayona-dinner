@@ -34,4 +34,10 @@ export const CONSTANTS = {
 
   /** デフォルトの営業時刻（HH:mm形式） */
   DEFAULT_TARGET_TIME: "23:00",
+
+  /** 検索結果0件時の緩和後の半径（メートル） */
+  RELAXED_SEARCH_RADIUS_METERS: 1200,
+
+  /** 検索結果0件時の緩和後の営業時刻（HH:mm形式） */
+  RELAXED_TARGET_TIME: "22:00",
 } as const;
