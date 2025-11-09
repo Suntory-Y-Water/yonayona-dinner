@@ -21,7 +21,8 @@
       "Bash(bun run:*)",
       "Bash(bun install:*)",
       "Bash(node -e:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "mcp__kiri"
     ],
     "deny": [
       "Bash(rm -rf ../*)",
