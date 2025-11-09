@@ -7,6 +7,11 @@ import { searchNearby } from "@/services/places-service";
 /**
  * 自動緩和機能付き店舗検索カスタムフックの戻り値。
  *
+ * このフックは検索結果が0件の場合、以下の順で自動的に条件を緩和します：
+ * 1. 半径800m, ユーザー選択時間
+ * 2. 半径1200m, ユーザー選択時間
+ * 3. 半径1200m, 22:00（ユーザー選択時間≠22:00の場合のみ）
+ *
  * @example
  * ```ts
  * const { places, message, isSearching, error } = useAutoRelaxingSearch({
