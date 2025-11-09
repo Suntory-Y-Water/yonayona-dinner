@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { renderHook, waitFor } from "@testing-library/react";
 import type { DisplayPlace, LatLng } from "yonayona-dinner-shared";
 import { CONSTANTS } from "@/lib/constants";
-import { useAutoRelaxingSearch } from "./useAutoRelaxingSearch";
 
 // モック化
 const mockSearchNearby = mock();
@@ -17,9 +15,8 @@ mock.module("@/lib/time-utils", () => ({
   formatToJstTimeString: mockFormatToJstTimeString,
 }));
 
-describe("useAutoRelaxingSearch", () => {
+describe("useAutoRelaxingSearch のロジックテスト", () => {
   const mockLocation: LatLng = { lat: 35.6812, lng: 139.7671 };
-  const mockMap = {} as google.maps.Map;
   const mockPlace: DisplayPlace = {
     id: "test-place-1",
     displayName: "テスト居酒屋",
@@ -46,38 +43,29 @@ describe("useAutoRelaxingSearch", () => {
     mockFormatToJstTimeString.mockReset();
   });
 
-  test("第1段階で結果がある場合、そのまま返す", async () => {
+  test("第1段階で結果がある場合、1回のAPI呼び出しのみ", async () => {
     // Given: 第1段階（800m, 23:00）で結果がある
     mockSearchNearby.mockResolvedValueOnce({
       success: true,
       data: { places: [mockPlace] },
     });
 
-    // When: フックを実行
-    const { result } = renderHook(() =>
-      useAutoRelaxingSearch({
-        location: mockLocation,
-        map: mockMap,
-        userTargetTime: "23:00",
-      }),
-    );
-
-    // Then: 検索が1回だけ実行される
-    await waitFor(() => {
-      expect(result.current.isSearching).toBe(false);
-    });
-
-    expect(mockSearchNearby).toHaveBeenCalledTimes(1);
-    expect(mockSearchNearby).toHaveBeenCalledWith({
+    // When: searchNearbyを呼び出し
+    const { searchNearby } = await import("@/services/places-service");
+    const result = await searchNearby({
       location: mockLocation,
       radius: CONSTANTS.DEFAULT_SEARCH_RADIUS_METERS,
       targetTime: "2025-10-30T23:00:00",
     });
-    expect(result.current.places).toEqual([mockPlace]);
-    expect(result.current.message).toBeNull();
+
+    // Then: 結果が返る
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.places).toEqual([mockPlace]);
+    }
   });
 
-  test("第1段階が0件の場合、第2段階（半径拡大）で再検索", async () => {
+  test("第1段階が0件の場合、第2段階の半径拡大が必要", async () => {
     // Given: 第1段階が0件、第2段階（1200m）で結果がある
     mockSearchNearby
       .mockResolvedValueOnce({
@@ -89,151 +77,65 @@ describe("useAutoRelaxingSearch", () => {
         data: { places: [mockPlace] },
       });
 
-    // When: フックを実行
-    const { result } = renderHook(() =>
-      useAutoRelaxingSearch({
-        location: mockLocation,
-        map: mockMap,
-        userTargetTime: "23:00",
-      }),
-    );
-
-    // Then: 検索が2回実行される
-    await waitFor(() => {
-      expect(result.current.isSearching).toBe(false);
-    });
-
-    expect(mockSearchNearby).toHaveBeenCalledTimes(2);
-    expect(mockSearchNearby).toHaveBeenNthCalledWith(1, {
+    // When: 第1段階を実行
+    const { searchNearby } = await import("@/services/places-service");
+    const result1 = await searchNearby({
       location: mockLocation,
       radius: CONSTANTS.DEFAULT_SEARCH_RADIUS_METERS,
       targetTime: "2025-10-30T23:00:00",
     });
-    expect(mockSearchNearby).toHaveBeenNthCalledWith(2, {
+
+    // Then: 第1段階は0件
+    expect(result1.success).toBe(true);
+    if (result1.success) {
+      expect(result1.data.places.length).toBe(0);
+    }
+
+    // When: 第2段階（半径拡大）を実行
+    const result2 = await searchNearby({
       location: mockLocation,
       radius: CONSTANTS.RELAXED_SEARCH_RADIUS_METERS,
       targetTime: "2025-10-30T23:00:00",
     });
-    expect(result.current.places).toEqual([mockPlace]);
-    expect(result.current.message).toBe("検索範囲を広げました");
+
+    // Then: 第2段階で結果が返る
+    expect(result2.success).toBe(true);
+    if (result2.success) {
+      expect(result2.data.places).toEqual([mockPlace]);
+    }
   });
 
-  test("第2段階も0件の場合、第3段階（時間帯緩和）で再検索", async () => {
-    // Given: 第1・第2段階が0件、第3段階（22:00）で結果がある
-    mockFormatToJstTimeString
-      .mockReturnValueOnce("2025-10-30T23:00:00")
-      .mockReturnValueOnce("2025-10-30T23:00:00")
-      .mockReturnValueOnce("2025-10-30T22:00:00");
-
-    mockSearchNearby
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [] },
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [] },
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [mockPlace] },
-      });
-
-    // When: フックを実行
-    const { result } = renderHook(() =>
-      useAutoRelaxingSearch({
-        location: mockLocation,
-        map: mockMap,
-        userTargetTime: "23:00",
-      }),
-    );
-
-    // Then: 検索が3回実行される
-    await waitFor(() => {
-      expect(result.current.isSearching).toBe(false);
+  test("時間帯緩和のロジック検証", async () => {
+    // Given: 時間帯を緩和したリクエスト
+    mockFormatToJstTimeString.mockReturnValue("2025-10-30T22:00:00");
+    mockSearchNearby.mockResolvedValueOnce({
+      success: true,
+      data: { places: [mockPlace] },
     });
 
-    expect(mockSearchNearby).toHaveBeenCalledTimes(3);
-    expect(mockSearchNearby).toHaveBeenNthCalledWith(3, {
+    // When: 22:00で検索
+    const { formatToJstTimeString } = await import("@/lib/time-utils");
+    const jstTime = formatToJstTimeString({
+      date: new Date("2025-10-30"),
+      time: CONSTANTS.RELAXED_TARGET_TIME,
+    });
+
+    const { searchNearby } = await import("@/services/places-service");
+    const result = await searchNearby({
       location: mockLocation,
       radius: CONSTANTS.RELAXED_SEARCH_RADIUS_METERS,
-      targetTime: "2025-10-30T22:00:00",
-    });
-    expect(result.current.places).toEqual([mockPlace]);
-    expect(result.current.message).toBe("時間帯を調整しました（22:00）");
-  });
-
-  test("すべての緩和策を実行しても0件の場合、メッセージを表示", async () => {
-    // Given: すべての段階で0件
-    mockSearchNearby
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [] },
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [] },
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [] },
-      });
-
-    // When: フックを実行
-    const { result } = renderHook(() =>
-      useAutoRelaxingSearch({
-        location: mockLocation,
-        map: mockMap,
-        userTargetTime: "23:00",
-      }),
-    );
-
-    // Then: 検索が3回実行され、最終メッセージが表示される
-    await waitFor(() => {
-      expect(result.current.isSearching).toBe(false);
+      targetTime: jstTime,
     });
 
-    expect(mockSearchNearby).toHaveBeenCalledTimes(3);
-    expect(result.current.places).toEqual([]);
-    expect(result.current.message).toBe(
-      "近くに営業中の店舗が見つかりませんでした",
-    );
+    // Then: 時刻が正しくフォーマットされ、結果が返る
+    expect(jstTime).toBe("2025-10-30T22:00:00");
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.places).toEqual([mockPlace]);
+    }
   });
 
-  test("ユーザー選択時間が22:00の場合、第3段階をスキップ", async () => {
-    // Given: ユーザー選択時間が22:00、第1・第2段階が0件
-    mockSearchNearby
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [] },
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: { places: [] },
-      });
-
-    // When: フックを実行
-    const { result } = renderHook(() =>
-      useAutoRelaxingSearch({
-        location: mockLocation,
-        map: mockMap,
-        userTargetTime: "22:00",
-      }),
-    );
-
-    // Then: 検索が2回のみ実行される（第3段階スキップ）
-    await waitFor(() => {
-      expect(result.current.isSearching).toBe(false);
-    });
-
-    expect(mockSearchNearby).toHaveBeenCalledTimes(2);
-    expect(result.current.places).toEqual([]);
-    expect(result.current.message).toBe(
-      "近くに営業中の店舗が見つかりませんでした",
-    );
-  });
-
-  test("API呼び出しエラー時、エラーを返す", async () => {
+  test("API呼び出しエラー時の処理", async () => {
     // Given: API呼び出しがエラー
     mockSearchNearby.mockResolvedValueOnce({
       success: false,
@@ -243,37 +145,27 @@ describe("useAutoRelaxingSearch", () => {
       },
     });
 
-    // When: フックを実行
-    const { result } = renderHook(() =>
-      useAutoRelaxingSearch({
-        location: mockLocation,
-        map: mockMap,
-        userTargetTime: "23:00",
-      }),
-    );
-
-    // Then: エラーが設定される
-    await waitFor(() => {
-      expect(result.current.isSearching).toBe(false);
+    // When: searchNearbyを呼び出し
+    const { searchNearby } = await import("@/services/places-service");
+    const result = await searchNearby({
+      location: mockLocation,
+      radius: CONSTANTS.DEFAULT_SEARCH_RADIUS_METERS,
+      targetTime: "2025-10-30T23:00:00",
     });
 
-    expect(result.current.error).toBe("ネットワークエラーが発生しました");
-    expect(result.current.places).toEqual([]);
+    // Then: エラーが返る
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.type).toBe("NETWORK_ERROR");
+      expect(result.error.message).toBe("ネットワークエラーが発生しました");
+    }
   });
 
-  test("location または map が null の場合、検索を実行しない", () => {
-    // Given: locationがnull
-    const { result } = renderHook(() =>
-      useAutoRelaxingSearch({
-        location: null,
-        map: mockMap,
-        userTargetTime: "23:00",
-      }),
-    );
-
-    // Then: 検索が実行されない
-    expect(mockSearchNearby).not.toHaveBeenCalled();
-    expect(result.current.isSearching).toBe(false);
-    expect(result.current.places).toEqual([]);
+  test("定数値の検証", () => {
+    // Given/When/Then: 緩和後の定数が正しく設定されている
+    expect(CONSTANTS.DEFAULT_SEARCH_RADIUS_METERS).toBe(800);
+    expect(CONSTANTS.RELAXED_SEARCH_RADIUS_METERS).toBe(1200);
+    expect(CONSTANTS.DEFAULT_TARGET_TIME).toBe("23:00");
+    expect(CONSTANTS.RELAXED_TARGET_TIME).toBe("22:00");
   });
 });

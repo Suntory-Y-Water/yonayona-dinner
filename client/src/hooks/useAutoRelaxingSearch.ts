@@ -82,6 +82,9 @@ export function useAutoRelaxingSearch({
       return;
     }
 
+    // 型安全性のため、locationを安定した変数にコピー
+    const stableLocation: LatLng = location;
+
     let isActive = true;
     setIsSearching(true);
     setError(null);
@@ -107,7 +110,7 @@ export function useAutoRelaxingSearch({
 
       // 第1段階: デフォルト条件（800m, ユーザー指定時間）
       const result1 = await searchNearby({
-        location,
+        location: stableLocation,
         radius: CONSTANTS.DEFAULT_SEARCH_RADIUS_METERS,
         targetTime: formatToJstTimeString({
           date: baseDate,
@@ -133,7 +136,7 @@ export function useAutoRelaxingSearch({
 
       // 第2段階: 半径を拡大（1200m, ユーザー指定時間）
       const result2 = await searchNearby({
-        location,
+        location: stableLocation,
         radius: CONSTANTS.RELAXED_SEARCH_RADIUS_METERS,
         targetTime: formatToJstTimeString({
           date: baseDate,
@@ -161,7 +164,7 @@ export function useAutoRelaxingSearch({
       // ユーザー選択時間が既に22:00の場合はスキップ
       if (userTargetTime !== CONSTANTS.RELAXED_TARGET_TIME) {
         const result3 = await searchNearby({
-          location,
+          location: stableLocation,
           radius: CONSTANTS.RELAXED_SEARCH_RADIUS_METERS,
           targetTime: formatToJstTimeString({
             date: baseDate,
