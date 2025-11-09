@@ -181,7 +181,9 @@ export function useAutoRelaxingSearch({
 
         if (result3.success && result3.data.places.length > 0) {
           setPlaces(result3.data.places);
-          setMessage(`時間帯を調整しました（${CONSTANTS.RELAXED_TARGET_TIME}）`);
+          setMessage(
+            `時間帯を調整しました（${CONSTANTS.RELAXED_TARGET_TIME}）`,
+          );
           setIsSearching(false);
           return;
         }
